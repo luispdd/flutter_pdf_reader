@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'pdf_reader_controller.dart';
 
 void main() {
   runApp(
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => PdfReaderController()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => PdfReaderController())],
       child: const MyApp(),
     ),
   );
@@ -74,7 +73,9 @@ class PdfReaderScreen extends StatelessWidget {
                 value: controller.currentPage.toDouble(),
                 min: 1,
                 max: controller.totalPages.toDouble(),
-                divisions: controller.totalPages > 1 ? controller.totalPages - 1 : 1,
+                divisions: controller.totalPages > 1
+                    ? controller.totalPages - 1
+                    : 1,
                 label: controller.currentPage.toString(),
                 onChanged: (value) {
                   controller.setPage(value.toInt());
@@ -92,7 +93,9 @@ class PdfReaderScreen extends StatelessWidget {
                         controller.startNarration();
                       }
                     },
-                    child: Icon(controller.isPlaying ? Icons.stop : Icons.play_arrow),
+                    child: Icon(
+                      controller.isPlaying ? Icons.stop : Icons.play_arrow,
+                    ),
                   ),
                 ],
               ),
@@ -104,7 +107,11 @@ class PdfReaderScreen extends StatelessWidget {
                     builder: (context) => AlertDialog(
                       title: Text('Page ${controller.currentPage} Text'),
                       content: SingleChildScrollView(
-                        child: Text(controller.currentPageText.isEmpty ? "No text found on this page." : controller.currentPageText),
+                        child: Text(
+                          controller.currentPageText.isEmpty
+                              ? "No text found on this page."
+                              : controller.currentPageText,
+                        ),
                       ),
                       actions: [
                         TextButton(
@@ -119,6 +126,26 @@ class PdfReaderScreen extends StatelessWidget {
                 label: const Text('Show Page Text'),
               ),
             ],
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () {
+                if (controller.isReadingClipboard) {
+                  controller.stopClipboardNarration();
+                } else {
+                  controller.readClipboard();
+                }
+              },
+              icon: Icon(
+                controller.isReadingClipboard
+                    ? Icons.stop
+                    : Icons.content_paste,
+              ),
+              label: Text(
+                controller.isReadingClipboard
+                    ? 'Stop clipboard playback'
+                    : 'Read text from Clipboard',
+              ),
+            ),
           ],
         ),
       ),

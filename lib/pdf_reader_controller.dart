@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -13,6 +14,7 @@ class PdfReaderController extends ChangeNotifier {
   int _totalPages = 0;
   int _currentPage = 1; // 1-indexed for the user UI
   bool _isPlaying = false;
+  bool _isReadingClipboard = false;
   String _currentPageText = "";
   PdfDocument? _document;
   static const List<String> _charactersToRemove = ['●'];
@@ -21,6 +23,7 @@ class PdfReaderController extends ChangeNotifier {
   int get totalPages => _totalPages;
   int get currentPage => _currentPage;
   bool get isPlaying => _isPlaying;
+  bool get isReadingClipboard => _isReadingClipboard;
   String get currentPageText => _currentPageText;
 
   PdfReaderController() {
@@ -30,7 +33,13 @@ class PdfReaderController extends ChangeNotifier {
   void _initTts() {
     _flutterTts.setCompletionHandler(() {
       if (_isPlaying) {
-        _readNextPage();
+        if (_isReadingClipboard) {
+          _isReadingClipboard = false;
+          _isPlaying = false;
+          notifyListeners();
+        } else {
+          _readNextPage();
+        }
       }
     });
   }
@@ -90,9 +99,27 @@ class PdfReaderController extends ChangeNotifier {
         startPageIndex: _currentPage - 1,
         endPageIndex: _currentPage - 1,
       );
-      final String escapedPageNumber = RegExp.escape(_currentPage.toString());
+      final List<String> pageNumbers = [
+        if (_currentPage > 1) (_currentPage - 1).toString(),
+        _currentPage.toString(),
+        (_currentPage + 1).toString(),
+      ];
+
+      // Works whether pageNumbers is List<int> or List<String>
+      final String escapedPageNumbers = pageNumbers
+          .map((p) => RegExp.escape(p.toString()))
+          .join('|');
+
+      // Uses raw strings (r'...') so \ and $ don't conflict with Dart syntax
+      final RegExp startRegExp = RegExp(
+        r'^(?:' + escapedPageNumbers + r')\b\s*',
+      );
+      final RegExp endRegExp = RegExp(r'\s*\b(?:' + escapedPageNumbers + r')$');
+
       final textWithoutPageNumber = extractedText
-          .replaceFirst(escapedPageNumber, '')
+          .trim()
+          .replaceFirst(startRegExp, '')
+          .replaceFirst(endRegExp, '')
           .trim();
 
       _currentPageText = _removeCharactersFromText(textWithoutPageNumber);
@@ -114,11 +141,37 @@ class PdfReaderController extends ChangeNotifier {
   Future<void> startNarration() async {
     if (_document == null || _currentPageText.isEmpty) return;
 
+    if (_isPlaying) {
+      await stopNarration();
+    }
+
     _isPlaying = true;
+    _isReadingClipboard = false;
     notifyListeners();
 
+    await _startNarrationOfText(_currentPageText);
+  }
+
+  Future<void> readClipboard() async {
+    ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
+    String text = data?.text ?? '';
+    if (text.isNotEmpty) {
+      await stopNarration();
+      _isReadingClipboard = true;
+      _isPlaying = true;
+      notifyListeners();
+      await _startNarrationOfText(text);
+    }
+  }
+
+  Future<void> stopClipboardNarration() async {
+    _isReadingClipboard = false;
+    await stopNarration();
+  }
+
+  Future<void> _startNarrationOfText(String text) async {
     if (kIsWeb || !Platform.isLinux) {
-      await _flutterTts.speak(_currentPageText);
+      await _flutterTts.speak(text);
     } else {
       // Linux fallback since flutter_tts doesn't support Linux.
       // We will try to use 'piper' via bash.
@@ -130,29 +183,41 @@ class PdfReaderController extends ChangeNotifier {
         final command = '''
 echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx --output-raw | aplay -r 22050 -f S16_LE -t raw -
 ''';
-        _linuxTtsProcess = await Process.start(
+        final process = await Process.start(
           'bash',
           ['-c', command],
-          environment: {'_TEXT': _currentPageText},
+          environment: {'_TEXT': text},
         );
+        _linuxTtsProcess = process;
 
         // Print any errors from the bash command
-        _linuxTtsProcess!.stderr.listen((data) {
+        process.stderr.listen((data) {
           print("TTS Error: ${String.fromCharCodes(data)}");
         });
 
-        _linuxTtsProcess!.exitCode.then((code) {
+        process.exitCode.then((code) {
+          // If a new process was started, ignore the exit of the old one
+          if (_linuxTtsProcess != process) return;
+
           if (code == 0 && _isPlaying) {
-            _readNextPage();
+            if (_isReadingClipboard) {
+              _isReadingClipboard = false;
+              _isPlaying = false;
+              notifyListeners();
+            } else {
+              _readNextPage();
+            }
           } else if (code != 0 && _isPlaying) {
             print("TTS process exited with code $code. Stopping narration.");
             _isPlaying = false;
+            _isReadingClipboard = false;
             notifyListeners();
           }
         });
       } catch (e) {
         print("Linux TTS Start Error: $e");
         _isPlaying = false;
+        _isReadingClipboard = false;
         notifyListeners();
       }
     }
@@ -160,6 +225,7 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
 
   Future<void> stopNarration() async {
     _isPlaying = false;
+    _isReadingClipboard = false;
     if (kIsWeb || !Platform.isLinux) {
       await _flutterTts.stop();
     } else {
