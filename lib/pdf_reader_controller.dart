@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
@@ -6,7 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 class PdfReaderController extends ChangeNotifier {
   final FlutterTts _flutterTts = FlutterTts();
-  
+
   String? _pdfPath;
   String? _pdfFileName;
   int _totalPages = 0;
@@ -14,6 +15,7 @@ class PdfReaderController extends ChangeNotifier {
   bool _isPlaying = false;
   String _currentPageText = "";
   PdfDocument? _document;
+  static const List<String> _charactersToRemove = ['●'];
 
   String? get pdfFileName => _pdfFileName;
   int get totalPages => _totalPages;
@@ -52,12 +54,12 @@ class PdfReaderController extends ChangeNotifier {
 
   Future<void> _loadDocument() async {
     if (_pdfPath == null) return;
-    
+
     stopNarration();
-    
+
     final File file = File(_pdfPath!);
     final Uint8List bytes = await file.readAsBytes();
-    
+
     _document = PdfDocument(inputBytes: bytes);
     _totalPages = _document!.pages.count;
     _currentPage = 1;
@@ -69,7 +71,7 @@ class PdfReaderController extends ChangeNotifier {
     if (page < 1 || page > _totalPages) return;
     _currentPage = page;
     await _extractTextForCurrentPage();
-    
+
     if (_isPlaying) {
       await stopNarration();
       await startNarration();
@@ -80,29 +82,46 @@ class PdfReaderController extends ChangeNotifier {
 
   Future<void> _extractTextForCurrentPage() async {
     if (_document == null) return;
-    
+
     try {
       final PdfTextExtractor extractor = PdfTextExtractor(_document!);
       // extractText uses 0-based indexing for pages
-      _currentPageText = extractor.extractText(startPageIndex: _currentPage - 1, endPageIndex: _currentPage - 1);
+      final String extractedText = extractor.extractText(
+        startPageIndex: _currentPage - 1,
+        endPageIndex: _currentPage - 1,
+      );
+      final String escapedPageNumber = RegExp.escape(_currentPage.toString());
+      final textWithoutPageNumber = extractedText
+          .replaceFirst(escapedPageNumber, '')
+          .trim();
+
+      _currentPageText = _removeCharactersFromText(textWithoutPageNumber);
     } catch (e) {
       _currentPageText = "Error extracting text from this page.";
     }
+  }
+
+  String _removeCharactersFromText(String text) {
+    var cleanedText = text;
+    for (final character in _charactersToRemove) {
+      cleanedText = cleanedText.replaceAll(character, '');
+    }
+    return cleanedText;
   }
 
   Process? _linuxTtsProcess;
 
   Future<void> startNarration() async {
     if (_document == null || _currentPageText.isEmpty) return;
-    
+
     _isPlaying = true;
     notifyListeners();
-    
+
     if (kIsWeb || !Platform.isLinux) {
       await _flutterTts.speak(_currentPageText);
     } else {
       // Linux fallback since flutter_tts doesn't support Linux.
-      // We will try to use 'piper' via bash. 
+      // We will try to use 'piper' via bash.
       // You must edit the command below to point to your piper model.
       try {
         // Here we pipe the text into piper and then to aplay.
@@ -116,19 +135,19 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
           ['-c', command],
           environment: {'_TEXT': _currentPageText},
         );
-        
+
         // Print any errors from the bash command
         _linuxTtsProcess!.stderr.listen((data) {
-          print("TTS Error: " + String.fromCharCodes(data));
+          print("TTS Error: ${String.fromCharCodes(data)}");
         });
-        
+
         _linuxTtsProcess!.exitCode.then((code) {
           if (code == 0 && _isPlaying) {
-             _readNextPage();
+            _readNextPage();
           } else if (code != 0 && _isPlaying) {
-             print("TTS process exited with code $code. Stopping narration.");
-             _isPlaying = false;
-             notifyListeners();
+            print("TTS process exited with code $code. Stopping narration.");
+            _isPlaying = false;
+            notifyListeners();
           }
         });
       } catch (e) {
@@ -147,7 +166,11 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
       if (_linuxTtsProcess != null) {
         // Kill child processes (piper, aplay) BEFORE killing the bash shell.
         // Otherwise, they become orphans and continue playing audio!
-        await Process.run('pkill', ['-9', '-P', _linuxTtsProcess!.pid.toString()]);
+        await Process.run('pkill', [
+          '-9',
+          '-P',
+          _linuxTtsProcess!.pid.toString(),
+        ]);
         _linuxTtsProcess!.kill();
         _linuxTtsProcess = null;
       }
@@ -166,7 +189,7 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
       notifyListeners();
     }
   }
-  
+
   @override
   void dispose() {
     stopNarration();
