@@ -65,7 +65,9 @@ class DocumentReaderScreen extends StatelessWidget {
               label: const Text('Select PDF or Epub File'),
             ),
             const SizedBox(height: 40),
-            if (controller.totalChunks > 0) ...[
+            if (controller.isLoading && controller.totalChunks == 0)
+              const Center(child: CircularProgressIndicator())
+            else if (controller.totalChunks > 0) ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -117,16 +119,23 @@ class DocumentReaderScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   FloatingActionButton(
-                    onPressed: () {
-                      if (controller.isPlaying) {
-                        controller.stopNarration();
-                      } else {
-                        controller.startNarration();
-                      }
-                    },
-                    child: Icon(
-                      controller.isPlaying ? Icons.stop : Icons.play_arrow,
-                    ),
+                    onPressed: (controller.isLoading || controller.currentChunkText.isEmpty)
+                        ? null
+                        : () {
+                            if (controller.isPlaying) {
+                              controller.stopNarration();
+                            } else {
+                              controller.startNarration();
+                            }
+                          },
+                    child: controller.isLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: CircularProgressIndicator(strokeWidth: 3),
+                          )
+                        : Icon(
+                            controller.isPlaying ? Icons.stop : Icons.play_arrow,
+                          ),
                   ),
                 ],
               ),
