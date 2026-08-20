@@ -106,7 +106,6 @@ class DocumentReaderController extends ChangeNotifier {
 
     if (_isPlaying) {
       await stopNarration();
-      await startNarration();
     } else {
       notifyListeners();
     }

@@ -66,10 +66,39 @@ class DocumentReaderScreen extends StatelessWidget {
             ),
             const SizedBox(height: 40),
             if (controller.totalChunks > 0) ...[
-              Text(
-                '$chunkTypeLabel ${controller.currentChunk} of ${controller.totalChunks}',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$chunkTypeLabel ',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: controller.currentChunk,
+                      menuMaxHeight: 300,
+                      items: List.generate(
+                        controller.totalChunks,
+                        (index) => DropdownMenuItem(
+                          value: index + 1,
+                          child: Text(
+                            '${index + 1}',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        if (value != null) {
+                          controller.setChunk(value);
+                        }
+                      },
+                    ),
+                  ),
+                  Text(
+                    ' of ${controller.totalChunks}',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
               ),
               Slider(
                 value: controller.currentChunk.toDouble(),
