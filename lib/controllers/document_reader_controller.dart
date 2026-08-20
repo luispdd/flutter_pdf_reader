@@ -25,6 +25,7 @@ class DocumentReaderController extends ChangeNotifier {
   int _currentChunk = 1; // 1-indexed for the user UI
   bool _isPlaying = false;
   bool _isReadingClipboard = false;
+  bool _isLoading = false;
   String _currentChunkText = "";
   Process? _linuxTtsProcess;
 
@@ -33,6 +34,7 @@ class DocumentReaderController extends ChangeNotifier {
   int get currentChunk => _currentChunk;
   bool get isPlaying => _isPlaying;
   bool get isReadingClipboard => _isReadingClipboard;
+  bool get isLoading => _isLoading;
   String get currentChunkText => _currentChunkText;
   bool get isPdf => _isPdf;
   bool get isEpub => _isEpub;
@@ -80,6 +82,10 @@ class DocumentReaderController extends ChangeNotifier {
   Future<void> _loadDocument() async {
     if (_documentPath == null) return;
 
+    _isLoading = true;
+    _totalChunks = 0;
+    notifyListeners();
+
     await stopNarration();
 
     _activeReader?.dispose();
@@ -89,6 +95,8 @@ class DocumentReaderController extends ChangeNotifier {
     } else if (_isEpub) {
       _activeReader = EpubReaderService();
     } else {
+      _isLoading = false;
+      notifyListeners();
       return; // Unsupported type
     }
 
@@ -96,14 +104,21 @@ class DocumentReaderController extends ChangeNotifier {
     _totalChunks = _activeReader!.totalChunks;
     _currentChunk = 1;
     await _extractTextForCurrentChunk();
+    
+    _isLoading = false;
     notifyListeners();
   }
 
   Future<void> setChunk(int chunkIndex) async {
     if (chunkIndex < 1 || chunkIndex > _totalChunks) return;
     _currentChunk = chunkIndex;
+    
+    _isLoading = true;
+    notifyListeners();
+
     await _extractTextForCurrentChunk();
 
+    _isLoading = false;
     if (_isPlaying) {
       await stopNarration();
     } else {
