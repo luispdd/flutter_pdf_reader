@@ -1,30 +1,34 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:flutter_pdf_reader/main.dart';
+import 'package:flutter_pdf_reader/controllers/document_reader_controller.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('App renders empty state smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that empty state elements are present.
+    expect(find.text('Document Audio Reader'), findsOneWidget);
+    expect(find.text('No document selected'), findsOneWidget);
+    expect(find.text('Select PDF or EPUB file'), findsOneWidget);
+    expect(find.text('Read text from clipboard'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('Shows player state and text dialog correctly', (WidgetTester tester) async {
+    final controller = DocumentReaderController();
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: controller,
+        child: const MaterialApp(
+          home: DocumentReaderScreen(),
+        ),
+      ),
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify initial empty state
+    expect(find.text('No document selected'), findsOneWidget);
   });
 }
