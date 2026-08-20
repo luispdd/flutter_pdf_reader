@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'pdf_reader_controller.dart';
+import 'controllers/document_reader_controller.dart';
 
 void main() {
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => PdfReaderController())],
+      providers: [ChangeNotifierProvider(create: (_) => DocumentReaderController())],
       child: const MyApp(),
     ),
   );
@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PDF Reader',
+      title: 'Document Reader',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
@@ -27,21 +27,23 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       themeMode: ThemeMode.dark,
-      home: const PdfReaderScreen(),
+      home: const DocumentReaderScreen(),
     );
   }
 }
 
-class PdfReaderScreen extends StatelessWidget {
-  const PdfReaderScreen({super.key});
+class DocumentReaderScreen extends StatelessWidget {
+  const DocumentReaderScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<PdfReaderController>();
+    final controller = context.watch<DocumentReaderController>();
+
+    final chunkTypeLabel = controller.isEpub ? 'Chunk' : 'Page';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PDF Audio Reader'),
+        title: const Text('Document Audio Reader'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Padding(
@@ -50,9 +52,9 @@ class PdfReaderScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (controller.pdfFileName != null)
+            if (controller.documentFileName != null)
               Text(
-                'File: ${controller.pdfFileName}',
+                'File: ${controller.documentFileName}',
                 style: Theme.of(context).textTheme.titleMedium,
                 textAlign: TextAlign.center,
               ),
@@ -60,25 +62,25 @@ class PdfReaderScreen extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: () => controller.pickFile(),
               icon: const Icon(Icons.file_upload),
-              label: const Text('Select PDF File'),
+              label: const Text('Select PDF or Epub File'),
             ),
             const SizedBox(height: 40),
-            if (controller.totalPages > 0) ...[
+            if (controller.totalChunks > 0) ...[
               Text(
-                'Page ${controller.currentPage} of ${controller.totalPages}',
+                '$chunkTypeLabel ${controller.currentChunk} of ${controller.totalChunks}',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               Slider(
-                value: controller.currentPage.toDouble(),
+                value: controller.currentChunk.toDouble(),
                 min: 1,
-                max: controller.totalPages.toDouble(),
-                divisions: controller.totalPages > 1
-                    ? controller.totalPages - 1
+                max: controller.totalChunks.toDouble(),
+                divisions: controller.totalChunks > 1
+                    ? controller.totalChunks - 1
                     : 1,
-                label: controller.currentPage.toString(),
+                label: controller.currentChunk.toString(),
                 onChanged: (value) {
-                  controller.setPage(value.toInt());
+                  controller.setChunk(value.toInt());
                 },
               ),
               const SizedBox(height: 20),
@@ -105,12 +107,12 @@ class PdfReaderScreen extends StatelessWidget {
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: Text('Page ${controller.currentPage} Text'),
+                      title: Text('$chunkTypeLabel ${controller.currentChunk} Text'),
                       content: SingleChildScrollView(
                         child: Text(
-                          controller.currentPageText.isEmpty
-                              ? "No text found on this page."
-                              : controller.currentPageText,
+                          controller.currentChunkText.isEmpty
+                              ? "No text found on this $chunkTypeLabel."
+                              : controller.currentChunkText,
                         ),
                       ),
                       actions: [
@@ -123,7 +125,7 @@ class PdfReaderScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.text_snippet),
-                label: const Text('Show Page Text'),
+                label: Text('Show $chunkTypeLabel Text'),
               ),
             ],
             const SizedBox(height: 20),

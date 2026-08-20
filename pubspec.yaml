@@ -38,6 +38,8 @@ dependencies:
   syncfusion_flutter_pdf: ^33.2.13
   flutter_tts: ^4.2.5
   provider: ^6.1.5+1
+  epubx: ^4.0.0
+  html: ^0.15.6
 
 dev_dependencies:
   flutter_test:
@@ -49,6 +51,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  dart_mcp_server: ^1.1.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

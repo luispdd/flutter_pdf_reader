@@ -3,30 +3,41 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
-class PdfReaderController extends ChangeNotifier {
+import '../core/reader_service.dart';
+import '../readers/pdf_reader_service.dart';
+import '../readers/epub_reader_service.dart';
+import '../readers/clipboard_reader_service.dart';
+
+class DocumentReaderController extends ChangeNotifier {
   final FlutterTts _flutterTts = FlutterTts();
 
-  String? _pdfPath;
-  String? _pdfFileName;
-  int _totalPages = 0;
-  int _currentPage = 1; // 1-indexed for the user UI
+  String? _documentPath;
+  String? _documentFileName;
+  bool _isPdf = false;
+  bool _isEpub = false;
+  
+  ReaderService? _activeReader;
+  final ClipboardReaderService _clipboardReader = ClipboardReaderService();
+
+  int _totalChunks = 0;
+  int _currentChunk = 1; // 1-indexed for the user UI
   bool _isPlaying = false;
   bool _isReadingClipboard = false;
-  String _currentPageText = "";
-  PdfDocument? _document;
-  static const List<String> _charactersToRemove = ['●'];
+  String _currentChunkText = "";
+  Process? _linuxTtsProcess;
 
-  String? get pdfFileName => _pdfFileName;
-  int get totalPages => _totalPages;
-  int get currentPage => _currentPage;
+  String? get documentFileName => _documentFileName;
+  int get totalChunks => _totalChunks;
+  int get currentChunk => _currentChunk;
   bool get isPlaying => _isPlaying;
   bool get isReadingClipboard => _isReadingClipboard;
-  String get currentPageText => _currentPageText;
+  String get currentChunkText => _currentChunkText;
+  bool get isPdf => _isPdf;
+  bool get isEpub => _isEpub;
 
-  PdfReaderController() {
+  DocumentReaderController() {
     _initTts();
   }
 
@@ -38,7 +49,7 @@ class PdfReaderController extends ChangeNotifier {
           _isPlaying = false;
           notifyListeners();
         } else {
-          _readNextPage();
+          _readNextChunk();
         }
       }
     });
@@ -48,12 +59,17 @@ class PdfReaderController extends ChangeNotifier {
     try {
       List<PlatformFile> result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf'],
+        allowedExtensions: ['pdf', 'epub'],
       );
 
       if (result.isNotEmpty && result.first.path != null) {
-        _pdfPath = result.first.path!;
-        _pdfFileName = result.first.name;
+        _documentPath = result.first.path!;
+        _documentFileName = result.first.name;
+        
+        final extension = _documentFileName!.split('.').last.toLowerCase();
+        _isPdf = extension == 'pdf';
+        _isEpub = extension == 'epub';
+        
         await _loadDocument();
       }
     } catch (e) {
@@ -62,24 +78,31 @@ class PdfReaderController extends ChangeNotifier {
   }
 
   Future<void> _loadDocument() async {
-    if (_pdfPath == null) return;
+    if (_documentPath == null) return;
 
-    stopNarration();
+    await stopNarration();
 
-    final File file = File(_pdfPath!);
-    final Uint8List bytes = await file.readAsBytes();
+    _activeReader?.dispose();
+    
+    if (_isPdf) {
+      _activeReader = PdfReaderService();
+    } else if (_isEpub) {
+      _activeReader = EpubReaderService();
+    } else {
+      return; // Unsupported type
+    }
 
-    _document = PdfDocument(inputBytes: bytes);
-    _totalPages = _document!.pages.count;
-    _currentPage = 1;
-    await _extractTextForCurrentPage();
+    await _activeReader!.loadDocument(_documentPath!);
+    _totalChunks = _activeReader!.totalChunks;
+    _currentChunk = 1;
+    await _extractTextForCurrentChunk();
     notifyListeners();
   }
 
-  Future<void> setPage(int page) async {
-    if (page < 1 || page > _totalPages) return;
-    _currentPage = page;
-    await _extractTextForCurrentPage();
+  Future<void> setChunk(int chunkIndex) async {
+    if (chunkIndex < 1 || chunkIndex > _totalChunks) return;
+    _currentChunk = chunkIndex;
+    await _extractTextForCurrentChunk();
 
     if (_isPlaying) {
       await stopNarration();
@@ -89,57 +112,13 @@ class PdfReaderController extends ChangeNotifier {
     }
   }
 
-  Future<void> _extractTextForCurrentPage() async {
-    if (_document == null) return;
-
-    try {
-      final PdfTextExtractor extractor = PdfTextExtractor(_document!);
-      // extractText uses 0-based indexing for pages
-      final String extractedText = extractor.extractText(
-        startPageIndex: _currentPage - 1,
-        endPageIndex: _currentPage - 1,
-      );
-      final List<String> pageNumbers = [
-        if (_currentPage > 1) (_currentPage - 1).toString(),
-        _currentPage.toString(),
-        (_currentPage + 1).toString(),
-      ];
-
-      // Works whether pageNumbers is List<int> or List<String>
-      final String escapedPageNumbers = pageNumbers
-          .map((p) => RegExp.escape(p.toString()))
-          .join('|');
-
-      // Uses raw strings (r'...') so \ and $ don't conflict with Dart syntax
-      final RegExp startRegExp = RegExp(
-        r'^(?:' + escapedPageNumbers + r')\b\s*',
-      );
-      final RegExp endRegExp = RegExp(r'\s*\b(?:' + escapedPageNumbers + r')$');
-
-      final textWithoutPageNumber = extractedText
-          .trim()
-          .replaceFirst(startRegExp, '')
-          .replaceFirst(endRegExp, '')
-          .trim();
-
-      _currentPageText = _removeCharactersFromText(textWithoutPageNumber);
-    } catch (e) {
-      _currentPageText = "Error extracting text from this page.";
-    }
+  Future<void> _extractTextForCurrentChunk() async {
+    if (_activeReader == null) return;
+    _currentChunkText = await _activeReader!.extractTextForChunk(_currentChunk);
   }
-
-  String _removeCharactersFromText(String text) {
-    var cleanedText = text;
-    for (final character in _charactersToRemove) {
-      cleanedText = cleanedText.replaceAll(character, '');
-    }
-    return cleanedText;
-  }
-
-  Process? _linuxTtsProcess;
 
   Future<void> startNarration() async {
-    if (_document == null || _currentPageText.isEmpty) return;
+    if ((_activeReader == null && !_isReadingClipboard) || _currentChunkText.isEmpty) return;
 
     if (_isPlaying) {
       await stopNarration();
@@ -149,7 +128,7 @@ class PdfReaderController extends ChangeNotifier {
     _isReadingClipboard = false;
     notifyListeners();
 
-    await _startNarrationOfText(_currentPageText);
+    await _startNarrationOfText(_currentChunkText);
   }
 
   Future<void> readClipboard() async {
@@ -159,8 +138,10 @@ class PdfReaderController extends ChangeNotifier {
       await stopNarration();
       _isReadingClipboard = true;
       _isPlaying = true;
+      _clipboardReader.loadText(text);
+      _currentChunkText = await _clipboardReader.extractTextForChunk(1);
       notifyListeners();
-      await _startNarrationOfText(text);
+      await _startNarrationOfText(_currentChunkText);
     }
   }
 
@@ -173,13 +154,7 @@ class PdfReaderController extends ChangeNotifier {
     if (kIsWeb || !Platform.isLinux) {
       await _flutterTts.speak(text);
     } else {
-      // Linux fallback since flutter_tts doesn't support Linux.
-      // We will try to use 'piper' via bash.
-      // You must edit the command below to point to your piper model.
       try {
-        // Here we pipe the text into piper and then to aplay.
-        // If piper is not configured properly, you might want to replace this with:
-        // 'spd-say "\$_TEXT"' or 'espeak "\$_TEXT"'
         final command = '''
 echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx --output-raw | aplay -r 22050 -f S16_LE -t raw -
 ''';
@@ -190,13 +165,11 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
         );
         _linuxTtsProcess = process;
 
-        // Print any errors from the bash command
         process.stderr.listen((data) {
           print("TTS Error: ${String.fromCharCodes(data)}");
         });
 
         process.exitCode.then((code) {
-          // If a new process was started, ignore the exit of the old one
           if (_linuxTtsProcess != process) return;
 
           if (code == 0 && _isPlaying) {
@@ -205,7 +178,7 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
               _isPlaying = false;
               notifyListeners();
             } else {
-              _readNextPage();
+              _readNextChunk();
             }
           } else if (code != 0 && _isPlaying) {
             print("TTS process exited with code $code. Stopping narration.");
@@ -230,8 +203,6 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
       await _flutterTts.stop();
     } else {
       if (_linuxTtsProcess != null) {
-        // Kill child processes (piper, aplay) BEFORE killing the bash shell.
-        // Otherwise, they become orphans and continue playing audio!
         await Process.run('pkill', [
           '-9',
           '-P',
@@ -244,10 +215,10 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
     notifyListeners();
   }
 
-  void _readNextPage() async {
-    if (_currentPage < _totalPages) {
-      _currentPage++;
-      await _extractTextForCurrentPage();
+  void _readNextChunk() async {
+    if (_currentChunk < _totalChunks) {
+      _currentChunk++;
+      await _extractTextForCurrentChunk();
       notifyListeners();
       await startNarration();
     } else {
@@ -259,7 +230,8 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
   @override
   void dispose() {
     stopNarration();
-    _document?.dispose();
+    _activeReader?.dispose();
+    _clipboardReader.dispose();
     super.dispose();
   }
 }
