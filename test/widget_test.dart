@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:flutter_pdf_reader/main.dart';
 import 'package:flutter_pdf_reader/controllers/document_reader_controller.dart';
+import 'package:flutter_pdf_reader/screens/document_reader_screen.dart';
 
 void main() {
   testWidgets('App renders empty state smoke test', (WidgetTester tester) async {
