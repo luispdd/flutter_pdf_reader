@@ -169,18 +169,25 @@ class DocumentReaderController extends ChangeNotifier {
       await _flutterTts.speak(text);
     } else {
       try {
+        final home = Platform.environment['HOME'] ?? '';
+        final modelPath = '$home/.local/share/piper-voices/en_GB-cori-high.onnx';
         final command = '''
-echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx --output-raw | aplay -r 22050 -f S16_LE -t raw -
+set -o pipefail
+export PATH="\$HOME/.local/bin:\$HOME/.local/share/piper:/usr/local/bin:/usr/bin:/bin:\$PATH"
+echo "\$_TEXT" | piper --model "$modelPath" --output-raw | aplay -r 22050 -f S16_LE -t raw -
 ''';
         final process = await Process.start(
           'bash',
           ['-c', command],
-          environment: {'_TEXT': text},
+          environment: {
+            '_TEXT': text,
+            if (home.isNotEmpty) 'HOME': home,
+          },
         );
         _linuxTtsProcess = process;
 
         process.stderr.listen((data) {
-          print("TTS Error: ${String.fromCharCodes(data)}");
+          debugPrint("TTS Error: ${String.fromCharCodes(data)}");
         });
 
         process.exitCode.then((code) {
@@ -195,14 +202,14 @@ echo "\$_TEXT" | piper --model ~/.local/share/piper-voices/en_GB-cori-high.onnx 
               _readNextChunk();
             }
           } else if (code != 0 && _isPlaying) {
-            print("TTS process exited with code $code. Stopping narration.");
+            debugPrint("TTS process exited with code $code. Stopping narration.");
             _isPlaying = false;
             _isReadingClipboard = false;
             notifyListeners();
           }
         });
       } catch (e) {
-        print("Linux TTS Start Error: $e");
+        debugPrint("Linux TTS Start Error: $e");
         _isPlaying = false;
         _isReadingClipboard = false;
         notifyListeners();
