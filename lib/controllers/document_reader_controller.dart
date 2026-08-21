@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/reader_service.dart';
 import '../readers/pdf_reader_service.dart';
@@ -11,6 +12,10 @@ import '../readers/epub_reader_service.dart';
 import '../readers/clipboard_reader_service.dart';
 
 class DocumentReaderController extends ChangeNotifier {
+  static const String _keyDocumentPath = 'last_document_path';
+  static const String _keyDocumentFileName = 'last_document_name';
+  static const String _keyCurrentChunk = 'last_chunk_index';
+
   final FlutterTts _flutterTts = FlutterTts();
 
   String? _documentPath;
@@ -39,8 +44,11 @@ class DocumentReaderController extends ChangeNotifier {
   bool get isPdf => _isPdf;
   bool get isEpub => _isEpub;
 
-  DocumentReaderController() {
+  DocumentReaderController({bool autoRestore = true}) {
     _initTts();
+    if (autoRestore) {
+      _restoreLastSession();
+    }
   }
 
   void _initTts() {
@@ -55,6 +63,71 @@ class DocumentReaderController extends ChangeNotifier {
         }
       }
     });
+  }
+
+  Future<void> _restoreLastSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedPath = prefs.getString(_keyDocumentPath);
+      final savedFileName = prefs.getString(_keyDocumentFileName);
+      final savedChunk = prefs.getInt(_keyCurrentChunk) ?? 1;
+
+      if (savedPath != null && savedPath.isNotEmpty) {
+        final file = File(savedPath);
+        if (await file.exists()) {
+          _documentPath = savedPath;
+          _documentFileName = savedFileName ?? savedPath.split(Platform.pathSeparator).last;
+          
+          final extension = _documentFileName!.split('.').last.toLowerCase();
+          _isPdf = extension == 'pdf';
+          _isEpub = extension == 'epub';
+
+          if (_isPdf || _isEpub) {
+            await _loadDocument(initialChunk: savedChunk);
+            return;
+          }
+        }
+        // File doesn't exist or has unsupported extension, clean up saved preferences
+        await _clearSavedSession();
+      }
+    } catch (e) {
+      debugPrint("Error restoring last session: $e");
+    }
+  }
+
+  Future<void> _saveCurrentSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_documentPath != null) {
+        await prefs.setString(_keyDocumentPath, _documentPath!);
+        if (_documentFileName != null) {
+          await prefs.setString(_keyDocumentFileName, _documentFileName!);
+        }
+        await prefs.setInt(_keyCurrentChunk, _currentChunk);
+      }
+    } catch (e) {
+      debugPrint("Error saving session: $e");
+    }
+  }
+
+  Future<void> _saveCurrentChunk() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_keyCurrentChunk, _currentChunk);
+    } catch (e) {
+      debugPrint("Error saving chunk: $e");
+    }
+  }
+
+  Future<void> _clearSavedSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keyDocumentPath);
+      await prefs.remove(_keyDocumentFileName);
+      await prefs.remove(_keyCurrentChunk);
+    } catch (e) {
+      debugPrint("Error clearing session: $e");
+    }
   }
 
   Future<void> pickFile() async {
@@ -72,14 +145,14 @@ class DocumentReaderController extends ChangeNotifier {
         _isPdf = extension == 'pdf';
         _isEpub = extension == 'epub';
         
-        await _loadDocument();
+        await _loadDocument(initialChunk: 1);
       }
     } catch (e) {
       // User canceled or error
     }
   }
 
-  Future<void> _loadDocument() async {
+  Future<void> _loadDocument({int initialChunk = 1}) async {
     if (_documentPath == null) return;
 
     _isLoading = true;
@@ -100,10 +173,24 @@ class DocumentReaderController extends ChangeNotifier {
       return; // Unsupported type
     }
 
-    await _activeReader!.loadDocument(_documentPath!);
-    _totalChunks = _activeReader!.totalChunks;
-    _currentChunk = 1;
-    await _extractTextForCurrentChunk();
+    try {
+      await _activeReader!.loadDocument(_documentPath!);
+      _totalChunks = _activeReader!.totalChunks;
+      if (_totalChunks > 0) {
+        _currentChunk = initialChunk.clamp(1, _totalChunks);
+        await _extractTextForCurrentChunk();
+        await _saveCurrentSession();
+      } else {
+        _currentChunk = 1;
+        _currentChunkText = "";
+      }
+    } catch (e) {
+      debugPrint("Error loading document: $e");
+      _totalChunks = 0;
+      _currentChunk = 1;
+      _currentChunkText = "";
+      await _clearSavedSession();
+    }
     
     _isLoading = false;
     notifyListeners();
@@ -117,6 +204,7 @@ class DocumentReaderController extends ChangeNotifier {
     notifyListeners();
 
     await _extractTextForCurrentChunk();
+    await _saveCurrentChunk();
 
     _isLoading = false;
     if (_isPlaying) {
@@ -240,6 +328,7 @@ echo "\$_TEXT" | piper --model "$modelPath" --output-raw | aplay -r 22050 -f S16
     if (_currentChunk < _totalChunks) {
       _currentChunk++;
       await _extractTextForCurrentChunk();
+      await _saveCurrentChunk();
       notifyListeners();
       await startNarration();
     } else {

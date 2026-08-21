@@ -40,6 +40,7 @@ dependencies:
   provider: ^6.1.5+1
   epubx: ^4.0.0
   html: ^0.15.6
+  shared_preferences: ^2.5.4
 
 dev_dependencies:
   flutter_test:
