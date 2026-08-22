@@ -194,11 +194,22 @@ class _PlayerViewState extends State<PlayerView> {
   //  SHARED: Page selector + slider
   // ═══════════════════════════════════════════════════════════
   Widget _pageControls(DocumentReaderController c, String chunkTypeLabel) {
+    final canGoPrev = c.currentChunk > 1;
+    final canGoNext = c.currentChunk < c.totalChunks;
+
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left_rounded),
+              tooltip: 'Prev',
+              onPressed: canGoPrev ? () => c.setChunk(c.currentChunk - 1) : null,
+              color: kAmber,
+              disabledColor: Colors.white.withValues(alpha: 0.15),
+            ),
+            const SizedBox(width: 4),
             Text(
               '$chunkTypeLabel ',
               style: TextStyle(
@@ -246,6 +257,14 @@ class _PlayerViewState extends State<PlayerView> {
                 fontSize: 15,
                 color: Colors.white.withValues(alpha: 0.40),
               ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.chevron_right_rounded),
+              tooltip: 'Next',
+              onPressed: canGoNext ? () => c.setChunk(c.currentChunk + 1) : null,
+              color: kAmber,
+              disabledColor: Colors.white.withValues(alpha: 0.15),
             ),
           ],
         ),
