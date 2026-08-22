@@ -15,6 +15,8 @@ class DocumentReaderController extends ChangeNotifier {
   static const String _keyDocumentPath = 'last_document_path';
   static const String _keyDocumentFileName = 'last_document_name';
   static const String _keyCurrentChunk = 'last_chunk_index';
+  static const String _keySpeechRate = 'narration_speed';
+  static const String _keySpeechLanguage = 'narration_language';
 
   final FlutterTts _flutterTts = FlutterTts();
 
@@ -32,6 +34,8 @@ class DocumentReaderController extends ChangeNotifier {
   bool _isReadingClipboard = false;
   bool _isLoading = false;
   String _currentChunkText = "";
+  double _speechRate = 1.0;
+  String? _speechLanguage;
   Process? _linuxTtsProcess;
 
   String? get documentFileName => _documentFileName;
@@ -43,10 +47,13 @@ class DocumentReaderController extends ChangeNotifier {
   String get currentChunkText => _currentChunkText;
   bool get isPdf => _isPdf;
   bool get isEpub => _isEpub;
+  double get speechRate => _speechRate;
+  String? get speechLanguage => _speechLanguage;
 
   DocumentReaderController({bool autoRestore = true}) {
     _initTts();
     if (autoRestore) {
+      _restoreSettings();
       _restoreLastSession();
     }
   }
@@ -63,6 +70,71 @@ class DocumentReaderController extends ChangeNotifier {
         }
       }
     });
+  }
+
+  Future<void> _restoreSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedRate = prefs.getDouble(_keySpeechRate);
+      if (savedRate != null) {
+        _speechRate = savedRate;
+        try {
+          await _flutterTts.setSpeechRate(_speechRate);
+        } catch (_) {}
+      }
+      final savedLanguage = prefs.getString(_keySpeechLanguage);
+      if (savedLanguage != null && savedLanguage.isNotEmpty) {
+        _speechLanguage = savedLanguage;
+        try {
+          await _flutterTts.setLanguage(_speechLanguage!);
+        } catch (_) {}
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Error restoring settings: $e");
+    }
+  }
+
+  Future<List<String>> getAvailableLanguages() async {
+    try {
+      final dynamic languages = await _flutterTts.getLanguages;
+      if (languages is List) {
+        final list = languages.map((e) => e.toString()).toSet().toList();
+        list.sort();
+        return list;
+      }
+    } catch (e) {
+      debugPrint("Error fetching languages: $e");
+    }
+    return [];
+  }
+
+  Future<void> updateSpeechSettings({
+    required double speechRate,
+    String? language,
+  }) async {
+    _speechRate = speechRate;
+    _speechLanguage = language;
+    try {
+      await _flutterTts.setSpeechRate(_speechRate);
+    } catch (_) {}
+    try {
+      if (_speechLanguage != null && _speechLanguage!.isNotEmpty) {
+        await _flutterTts.setLanguage(_speechLanguage!);
+      }
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_keySpeechRate, _speechRate);
+      if (_speechLanguage != null && _speechLanguage!.isNotEmpty) {
+        await prefs.setString(_keySpeechLanguage, _speechLanguage!);
+      } else {
+        await prefs.remove(_keySpeechLanguage);
+      }
+    } catch (e) {
+      debugPrint("Error updating speech settings: $e");
+    }
+    notifyListeners();
   }
 
   Future<void> _restoreLastSession() async {
@@ -259,16 +331,18 @@ class DocumentReaderController extends ChangeNotifier {
       try {
         final home = Platform.environment['HOME'] ?? '';
         final modelPath = '$home/.local/share/piper-voices/en_GB-cori-high.onnx';
+        final lengthScale = (_speechRate > 0 ? (1.0 / _speechRate) : 1.0).toStringAsFixed(2);
         final command = '''
 set -o pipefail
 export PATH="\$HOME/.local/bin:\$HOME/.local/share/piper:/usr/local/bin:/usr/bin:/bin:\$PATH"
-echo "\$_TEXT" | piper --model "$modelPath" --output-raw | aplay -r 22050 -f S16_LE -t raw -
+echo "\$_TEXT" | piper --model "$modelPath" --length-scale \$LENGTH_SCALE --output-raw | aplay -r 22050 -f S16_LE -t raw -
 ''';
         final process = await Process.start(
           'bash',
           ['-c', command],
           environment: {
             '_TEXT': text,
+            'LENGTH_SCALE': lengthScale,
             if (home.isNotEmpty) 'HOME': home,
           },
         );

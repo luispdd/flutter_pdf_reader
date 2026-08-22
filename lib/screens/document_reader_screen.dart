@@ -5,6 +5,7 @@ import 'package:flutter_pdf_reader/core/app_theme.dart';
 import 'package:flutter_pdf_reader/screens/empty_state_view.dart';
 import 'package:flutter_pdf_reader/screens/player_view.dart';
 import 'package:flutter_pdf_reader/screens/clipboard_reader_screen.dart';
+import 'package:flutter_pdf_reader/screens/configuration_screen.dart';
 
 import 'package:flutter_pdf_reader/controllers/document_reader_controller.dart';
 
@@ -40,6 +41,19 @@ class DocumentReaderScreen extends StatelessWidget {
               ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Configuration',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const ConfigurationScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
