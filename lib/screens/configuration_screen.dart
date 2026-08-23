@@ -16,6 +16,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
   String? _selectedLanguage;
   List<String> _languages = [];
   bool _isLoadingLanguages = true;
+  late bool _codeFiltering;
 
   @override
   void initState() {
@@ -23,6 +24,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     final controller = context.read<DocumentReaderController>();
     _speechRate = controller.speechRate;
     _selectedLanguage = controller.speechLanguage;
+    _codeFiltering = controller.codeFiltering;
     _loadLanguages();
   }
 
@@ -48,6 +50,7 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     await controller.updateSpeechSettings(
       speechRate: _speechRate,
       language: _selectedLanguage,
+      codeFiltering: _codeFiltering,
     );
 
     if (!mounted) return;
@@ -290,6 +293,27 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                       ),
               ),
 
+              const SizedBox(height: 20),
+
+              // ─── Code Filtering Section ───
+              _buildSectionCard(
+                title: 'Code Filtering',
+                subtitle: 'Skip programming code blocks when reading EPUBs',
+                icon: Icons.code_off_rounded,
+                trailing: Switch.adaptive(
+                  value: _codeFiltering,
+                  activeThumbColor: kAmber,
+                  activeTrackColor: kAmber.withValues(alpha: 0.35),
+                  inactiveThumbColor: Colors.white60,
+                  inactiveTrackColor: Colors.white12,
+                  onChanged: (value) {
+                    setState(() {
+                      _codeFiltering = value;
+                    });
+                  },
+                ),
+              ),
+
               const SizedBox(height: 32),
 
               // ─── Apply Button ───
@@ -331,7 +355,8 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
     required String title,
     required String subtitle,
     required IconData icon,
-    required Widget child,
+    Widget? trailing,
+    Widget? child,
   }) {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -377,10 +402,16 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                   ],
                 ),
               ),
+              if (trailing != null) ...[
+                const SizedBox(width: 12),
+                trailing,
+              ],
             ],
           ),
-          const SizedBox(height: 18),
-          child,
+          if (child != null) ...[
+            const SizedBox(height: 18),
+            child,
+          ],
         ],
       ),
     );

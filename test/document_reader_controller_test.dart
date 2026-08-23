@@ -137,10 +137,11 @@ void main() {
     expect(prefs.getInt('last_chunk_index'), 3);
   });
 
-  test('Restores speech rate and language from SharedPreferences', () async {
+  test('Restores speech rate, language, and code filtering from SharedPreferences', () async {
     SharedPreferences.setMockInitialValues({
       'narration_speed': 1.5,
       'narration_language': 'en-GB',
+      'code_filtering': true,
     });
 
     final controller = DocumentReaderController();
@@ -148,6 +149,7 @@ void main() {
 
     expect(controller.speechRate, 1.5);
     expect(controller.speechLanguage, 'en-GB');
+    expect(controller.codeFiltering, isTrue);
   });
 
   test(
@@ -159,18 +161,22 @@ void main() {
 
       expect(controller.speechRate, 1.0);
       expect(controller.speechLanguage, isNull);
+      expect(controller.codeFiltering, isFalse);
 
       await controller.updateSpeechSettings(
         speechRate: 1.25,
         language: 'es-ES',
+        codeFiltering: true,
       );
 
       expect(controller.speechRate, 1.25);
       expect(controller.speechLanguage, 'es-ES');
+      expect(controller.codeFiltering, isTrue);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getDouble('narration_speed'), 1.25);
       expect(prefs.getString('narration_language'), 'es-ES');
+      expect(prefs.getBool('code_filtering'), isTrue);
     },
   );
 }

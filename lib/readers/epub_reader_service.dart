@@ -7,8 +7,11 @@ import '../core/reader_service.dart';
 import '../models/text_chunk.dart';
 
 class EpubReaderService implements ReaderService {
+  final bool filterCode;
   final List<TextChunk> _chunks = [];
   final Set<String> _processedContentFiles = {};
+
+  EpubReaderService({this.filterCode = false});
 
   @override
   Future<void> loadDocument(String path) async {
@@ -65,6 +68,26 @@ class EpubReaderService implements ReaderService {
         .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
 
     final document = parse(preProcessed);
+
+    if (filterCode) {
+      const codeSelectors = [
+        'code',
+        '.code',
+        '.code-block',
+        '.codeblock',
+        '.sourceCode',
+        '.source-code',
+        '.programlisting',
+        '.program-listing',
+      ];
+      final elementsToRemove = document.querySelectorAll(
+        codeSelectors.join(', '),
+      );
+      for (final element in elementsToRemove) {
+        element.remove();
+      }
+    }
+
     return document.body?.text ?? '';
   }
 

@@ -17,6 +17,7 @@ class DocumentReaderController extends ChangeNotifier {
   static const String _keyCurrentChunk = 'last_chunk_index';
   static const String _keySpeechRate = 'narration_speed';
   static const String _keySpeechLanguage = 'narration_language';
+  static const String _keyCodeFiltering = 'code_filtering';
 
   final FlutterTts _flutterTts = FlutterTts();
 
@@ -36,6 +37,7 @@ class DocumentReaderController extends ChangeNotifier {
   String _currentChunkText = "";
   double _speechRate = 1.0;
   String? _speechLanguage;
+  bool _codeFiltering = false;
   Process? _linuxTtsProcess;
 
   String? get documentFileName => _documentFileName;
@@ -49,13 +51,18 @@ class DocumentReaderController extends ChangeNotifier {
   bool get isEpub => _isEpub;
   double get speechRate => _speechRate;
   String? get speechLanguage => _speechLanguage;
+  bool get codeFiltering => _codeFiltering;
 
   DocumentReaderController({bool autoRestore = true}) {
     _initTts();
     if (autoRestore) {
-      _restoreSettings();
-      _restoreLastSession();
+      _initSession();
     }
+  }
+
+  Future<void> _initSession() async {
+    await _restoreSettings();
+    await _restoreLastSession();
   }
 
   void _initTts() {
@@ -89,6 +96,10 @@ class DocumentReaderController extends ChangeNotifier {
           await _flutterTts.setLanguage(_speechLanguage!);
         } catch (_) {}
       }
+      final savedCodeFiltering = prefs.getBool(_keyCodeFiltering);
+      if (savedCodeFiltering != null) {
+        _codeFiltering = savedCodeFiltering;
+      }
       notifyListeners();
     } catch (e) {
       debugPrint("Error restoring settings: $e");
@@ -112,9 +123,23 @@ class DocumentReaderController extends ChangeNotifier {
   Future<void> updateSpeechSettings({
     required double speechRate,
     String? language,
+    bool? codeFiltering,
   }) async {
     _speechRate = speechRate;
     _speechLanguage = language;
+    bool shouldReloadEpub = false;
+    if (codeFiltering != null) {
+      if (_codeFiltering != codeFiltering) {
+        _codeFiltering = codeFiltering;
+        shouldReloadEpub = _isEpub && _documentPath != null;
+      }
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_keyCodeFiltering, _codeFiltering);
+      } catch (e) {
+        debugPrint("Error updating code filtering setting: $e");
+      }
+    }
     try {
       await _flutterTts.setSpeechRate(_speechRate);
     } catch (_) {}
@@ -133,6 +158,10 @@ class DocumentReaderController extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint("Error updating speech settings: $e");
+    }
+    if (shouldReloadEpub) {
+      await _loadDocument(initialChunk: _currentChunk);
+      return;
     }
     notifyListeners();
   }
@@ -238,7 +267,7 @@ class DocumentReaderController extends ChangeNotifier {
     if (_isPdf) {
       _activeReader = PdfReaderService();
     } else if (_isEpub) {
-      _activeReader = EpubReaderService();
+      _activeReader = EpubReaderService(filterCode: _codeFiltering);
     } else {
       _isLoading = false;
       notifyListeners();

@@ -77,8 +77,15 @@ void main() {
       expect(find.text('Configuration'), findsOneWidget);
       expect(find.text('Narration Speed'), findsOneWidget);
       expect(find.text('Narration Language'), findsOneWidget);
-      expect(find.text('Apply'), findsOneWidget);
+      expect(find.text('Code Filtering'), findsOneWidget);
       expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(Switch), findsOneWidget);
+
+      // Toggle the Code Filtering switch
+      final switchFinder = find.byType(Switch);
+      await tester.ensureVisible(switchFinder);
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
 
       // Tap Apply button
       final applyButton = find.text('Apply');
@@ -89,6 +96,7 @@ void main() {
 
       // Verify controller settings were applied
       expect(controller.speechRate, 1.0);
+      expect(controller.codeFiltering, isTrue);
       // Verify Configuration screen is dismissed
       expect(find.byType(ConfigurationScreen), findsNothing);
       expect(find.text('Document Audio Reader'), findsOneWidget);
