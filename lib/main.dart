@@ -4,8 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:flutter_pdf_reader/core/app_theme.dart';
 import 'package:flutter_pdf_reader/screens/document_reader_screen.dart';
 import 'package:flutter_pdf_reader/controllers/document_reader_controller.dart';
+import 'package:flutter_pdf_reader/services/foreground_service_manager.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  ForegroundServiceManager.init();
   runApp(const MyApp());
 }
 

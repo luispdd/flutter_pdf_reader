@@ -41,6 +41,7 @@ dependencies:
   epubx: ^4.0.0
   html: ^0.15.6
   shared_preferences: ^2.5.4
+  flutter_foreground_task: ^11.0.1
 
 dev_dependencies:
   flutter_test:

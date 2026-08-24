@@ -10,6 +10,7 @@ import '../core/reader_service.dart';
 import '../readers/pdf_reader_service.dart';
 import '../readers/epub_reader_service.dart';
 import '../readers/clipboard_reader_service.dart';
+import '../services/foreground_service_manager.dart';
 
 class DocumentReaderController extends ChangeNotifier {
   static const String _keyDocumentPath = 'last_document_path';
@@ -320,6 +321,23 @@ class DocumentReaderController extends ChangeNotifier {
     _currentChunkText = await _activeReader!.extractTextForChunk(_currentChunk);
   }
 
+  String _getNarrationTitle() {
+    if (_isReadingClipboard) {
+      return 'Reading Clipboard';
+    }
+    return _documentFileName ?? 'Document Narration';
+  }
+
+  String _getNarrationSubtitle() {
+    if (_isReadingClipboard) {
+      return 'Narrating clipboard content';
+    }
+    if (_totalChunks > 0) {
+      return 'Page $_currentChunk of $_totalChunks';
+    }
+    return 'Narrating...';
+  }
+
   Future<void> startNarration() async {
     if ((_activeReader == null && !_isReadingClipboard) || _currentChunkText.isEmpty) return;
 
@@ -330,6 +348,11 @@ class DocumentReaderController extends ChangeNotifier {
     _isPlaying = true;
     _isReadingClipboard = false;
     notifyListeners();
+
+    await ForegroundServiceManager.startService(
+      title: _getNarrationTitle(),
+      text: _getNarrationSubtitle(),
+    );
 
     await _startNarrationOfText(_currentChunkText);
   }
@@ -344,6 +367,12 @@ class DocumentReaderController extends ChangeNotifier {
       _clipboardReader.loadText(text);
       _currentChunkText = await _clipboardReader.extractTextForChunk(1);
       notifyListeners();
+
+      await ForegroundServiceManager.startService(
+        title: _getNarrationTitle(),
+        text: _getNarrationSubtitle(),
+      );
+
       await _startNarrationOfText(_currentChunkText);
     }
   }
@@ -388,6 +417,7 @@ echo "\$_TEXT" | piper --model "$modelPath" --length-scale \$LENGTH_SCALE --outp
             if (_isReadingClipboard) {
               _isReadingClipboard = false;
               _isPlaying = false;
+              ForegroundServiceManager.stopService();
               notifyListeners();
             } else {
               _readNextChunk();
@@ -396,6 +426,7 @@ echo "\$_TEXT" | piper --model "$modelPath" --length-scale \$LENGTH_SCALE --outp
             debugPrint("TTS process exited with code $code. Stopping narration.");
             _isPlaying = false;
             _isReadingClipboard = false;
+            ForegroundServiceManager.stopService();
             notifyListeners();
           }
         });
@@ -403,6 +434,7 @@ echo "\$_TEXT" | piper --model "$modelPath" --length-scale \$LENGTH_SCALE --outp
         debugPrint("Linux TTS Start Error: $e");
         _isPlaying = false;
         _isReadingClipboard = false;
+        ForegroundServiceManager.stopService();
         notifyListeners();
       }
     }
@@ -411,6 +443,7 @@ echo "\$_TEXT" | piper --model "$modelPath" --length-scale \$LENGTH_SCALE --outp
   Future<void> stopNarration() async {
     _isPlaying = false;
     _isReadingClipboard = false;
+    await ForegroundServiceManager.stopService();
     if (kIsWeb || !Platform.isLinux) {
       await _flutterTts.stop();
     } else {
@@ -433,15 +466,30 @@ echo "\$_TEXT" | piper --model "$modelPath" --length-scale \$LENGTH_SCALE --outp
       await _extractTextForCurrentChunk();
       await _saveCurrentChunk();
       notifyListeners();
+      await ForegroundServiceManager.updateService(
+        title: _getNarrationTitle(),
+        text: _getNarrationSubtitle(),
+      );
       await startNarration();
     } else {
       _isPlaying = false;
+      await ForegroundServiceManager.stopService();
       notifyListeners();
+    }
+  }
+
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
     }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     stopNarration();
     _activeReader?.dispose();
     _clipboardReader.dispose();
