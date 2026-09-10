@@ -239,4 +239,47 @@ void main() {
       tempDir.deleteSync(recursive: true);
     }
   });
+
+  testWidgets('Page navigation does not trigger LoadingView and keeps PlayerView mounted', (
+    WidgetTester tester,
+  ) async {
+    final tempDir = Directory.systemTemp.createTempSync('widget_page_turn_test_');
+    final sampleFile = File('${tempDir.path}/page_turn_sample.pdf');
+    final doc = PdfDocument();
+    doc.pages.add().graphics.drawString('Page One Content', PdfStandardFont(PdfFontFamily.helvetica, 12));
+    doc.pages.add().graphics.drawString('Page Two Content', PdfStandardFont(PdfFontFamily.helvetica, 12));
+    final bytes = doc.saveSync();
+    doc.dispose();
+    sampleFile.writeAsBytesSync(bytes);
+
+    SharedPreferences.setMockInitialValues({
+      'last_document_path': sampleFile.path,
+      'last_document_name': 'page_turn_sample.pdf',
+      'last_chunk_index': 1,
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(MyApp(prefs: prefs));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byType(PlayerView), findsOneWidget);
+    expect(find.byType(LoadingView), findsNothing);
+    expect(find.text('Page '), findsOneWidget);
+    expect(find.text(' of 2'), findsOneWidget);
+
+    // Tap Next button to go to Page 2
+    final nextButton = find.byTooltip('Next');
+    expect(nextButton, findsOneWidget);
+    await tester.tap(nextButton);
+    await tester.pump();
+
+    // PlayerView remains mounted, LoadingView is NOT rendered
+    expect(find.byType(PlayerView), findsOneWidget);
+    expect(find.byType(LoadingView), findsNothing);
+    expect(find.text('2'), findsWidgets);
+
+    if (tempDir.existsSync()) {
+      tempDir.deleteSync(recursive: true);
+    }
+  });
 }

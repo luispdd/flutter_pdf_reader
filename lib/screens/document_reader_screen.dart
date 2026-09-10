@@ -66,12 +66,12 @@ class DocumentReaderScreen extends StatelessWidget {
   }
 
   Widget _buildBody(DocumentReaderController controller) {
-    if (controller.isLoading) {
+    if (controller.isDocumentLoading) {
       return LoadingView(documentFileName: controller.documentFileName);
     }
     if (controller.totalChunks == 0) {
       return EmptyStateView(
-        onPickFile: () => controller.pickFile(),
+        onPickFile: controller.isDocumentLoading ? null : () => controller.pickFile(),
         onReadClipboard: () => controller.readClipboard(),
       );
     }

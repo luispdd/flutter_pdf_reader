@@ -35,6 +35,7 @@ class DocumentReaderController extends ChangeNotifier {
   bool _isPlaying = false;
   bool _isReadingClipboard = false;
   bool _isLoading = false;
+  bool _isDocumentLoading = false;
   String _currentChunkText = "";
   double _speechRate = 1.0;
   String? _speechLanguage;
@@ -47,6 +48,7 @@ class DocumentReaderController extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   bool get isReadingClipboard => _isReadingClipboard;
   bool get isLoading => _isLoading;
+  bool get isDocumentLoading => _isDocumentLoading;
   String get currentChunkText => _currentChunkText;
   bool get isPdf => _isPdf;
   bool get isEpub => _isEpub;
@@ -73,6 +75,7 @@ class DocumentReaderController extends ChangeNotifier {
           _isEpub = extension == 'epub';
 
           if (_isPdf || _isEpub) {
+            _isDocumentLoading = true;
             _isLoading = true;
             _totalChunks = 0;
             if (autoRestore) {
@@ -83,6 +86,7 @@ class DocumentReaderController extends ChangeNotifier {
         }
         _clearSavedSession();
       }
+      _isDocumentLoading = false;
       _isLoading = false;
     } else if (autoRestore) {
       _initSession();
@@ -265,8 +269,10 @@ class DocumentReaderController extends ChangeNotifier {
   }
 
   Future<void> pickFile({String? customPath, String? customName}) async {
+    if (_isDocumentLoading) return;
     try {
       if (customPath != null) {
+        _isDocumentLoading = true;
         _documentPath = customPath;
         _documentFileName = customName ?? customPath.split(Platform.pathSeparator).last;
         _isLoading = true;
@@ -281,9 +287,18 @@ class DocumentReaderController extends ChangeNotifier {
         return;
       }
 
+      _isDocumentLoading = true;
+      notifyListeners();
+
       List<PlatformFile> result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'epub'],
+        onFileLoading: (FilePickerStatus status) {
+          if (status == FilePickerStatus.picking && !_isDocumentLoading) {
+            _isDocumentLoading = true;
+            notifyListeners();
+          }
+        },
       );
 
       if (result.isNotEmpty && result.first.path != null) {
@@ -298,15 +313,20 @@ class DocumentReaderController extends ChangeNotifier {
         _isEpub = extension == 'epub';
         
         await _loadDocument(initialChunk: 1);
+      } else {
+        _isDocumentLoading = false;
+        notifyListeners();
       }
     } catch (e) {
-      // User canceled or error
+      _isDocumentLoading = false;
+      notifyListeners();
     }
   }
 
   Future<void> _loadDocument({int initialChunk = 1}) async {
     if (_documentPath == null) return;
 
+    _isDocumentLoading = true;
     _isLoading = true;
     _totalChunks = 0;
     notifyListeners();
@@ -323,6 +343,7 @@ class DocumentReaderController extends ChangeNotifier {
     } else if (_isEpub) {
       _activeReader = EpubReaderService(filterCode: _codeFiltering);
     } else {
+      _isDocumentLoading = false;
       _isLoading = false;
       notifyListeners();
       return; // Unsupported type
@@ -345,10 +366,11 @@ class DocumentReaderController extends ChangeNotifier {
       _currentChunk = 1;
       _currentChunkText = "";
       await _clearSavedSession();
+    } finally {
+      _isDocumentLoading = false;
+      _isLoading = false;
+      notifyListeners();
     }
-    
-    _isLoading = false;
-    notifyListeners();
   }
 
   Future<void> setChunk(int chunkIndex) async {

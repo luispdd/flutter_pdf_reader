@@ -4,7 +4,7 @@ import 'package:flutter_pdf_reader/widgets/gradient_button.dart';
 import 'package:flutter_pdf_reader/widgets/secondary_button.dart';
 
 class EmptyStateView extends StatelessWidget {
-  final VoidCallback onPickFile;
+  final VoidCallback? onPickFile;
   final VoidCallback onReadClipboard;
 
   const EmptyStateView({

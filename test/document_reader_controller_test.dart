@@ -180,7 +180,7 @@ void main() {
     },
   );
 
-  test('Synchronously initializes to isLoading=true when prefs contains an existing file', () async {
+  test('Synchronously initializes to isDocumentLoading=true when prefs contains an existing file', () async {
     SharedPreferences.setMockInitialValues({
       'last_document_path': samplePdfFile.path,
       'last_document_name': 'test_sample.pdf',
@@ -190,26 +190,29 @@ void main() {
     final controller = DocumentReaderController(prefs: prefs);
 
     // Verified synchronously before any delays
+    expect(controller.isDocumentLoading, isTrue);
     expect(controller.isLoading, isTrue);
     expect(controller.documentFileName, 'test_sample.pdf');
 
     // Allow loadDocument to complete
     await Future.delayed(const Duration(milliseconds: 200));
+    expect(controller.isDocumentLoading, isFalse);
     expect(controller.isLoading, isFalse);
     expect(controller.totalChunks, 3);
   });
 
-  test('Synchronously initializes to isLoading=false when prefs has no document', () async {
+  test('Synchronously initializes to isDocumentLoading=false when prefs has no document', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final controller = DocumentReaderController(prefs: prefs);
 
+    expect(controller.isDocumentLoading, isFalse);
     expect(controller.isLoading, isFalse);
     expect(controller.documentFileName, isNull);
     expect(controller.totalChunks, 0);
   });
 
-  test('Synchronously initializes to isLoading=false when saved file does not exist on disk', () async {
+  test('Synchronously initializes to isDocumentLoading=false when saved file does not exist on disk', () async {
     SharedPreferences.setMockInitialValues({
       'last_document_path': '${tempDir.path}/non_existent.pdf',
       'last_document_name': 'non_existent.pdf',
@@ -218,27 +221,50 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final controller = DocumentReaderController(prefs: prefs);
 
+    expect(controller.isDocumentLoading, isFalse);
     expect(controller.isLoading, isFalse);
     expect(controller.documentFileName, isNull);
     expect(controller.totalChunks, 0);
   });
 
-  test('pickFile sets isLoading to true during loading and transitions upon load completion', () async {
+  test('pickFile sets isDocumentLoading to true during loading and transitions upon load completion', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final controller = DocumentReaderController(prefs: prefs);
 
+    expect(controller.isDocumentLoading, isFalse);
     expect(controller.isLoading, isFalse);
 
     final pickFuture = controller.pickFile(
       customPath: samplePdfFile.path,
       customName: 'test_sample.pdf',
     );
+    expect(controller.isDocumentLoading, isTrue);
     expect(controller.isLoading, isTrue);
     expect(controller.documentFileName, 'test_sample.pdf');
 
     await pickFuture;
+    expect(controller.isDocumentLoading, isFalse);
     expect(controller.isLoading, isFalse);
     expect(controller.totalChunks, 3);
+  });
+
+  test('setChunk updates current chunk without activating isDocumentLoading', () async {
+    SharedPreferences.setMockInitialValues({
+      'last_document_path': samplePdfFile.path,
+      'last_document_name': 'test_sample.pdf',
+      'last_chunk_index': 1,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final controller = DocumentReaderController(prefs: prefs);
+    await Future.delayed(const Duration(milliseconds: 200));
+
+    expect(controller.currentChunk, 1);
+    expect(controller.isDocumentLoading, isFalse);
+
+    await controller.setChunk(2);
+    expect(controller.currentChunk, 2);
+    expect(controller.isDocumentLoading, isFalse);
+    expect(controller.currentChunkText, contains('Page Two'));
   });
 }

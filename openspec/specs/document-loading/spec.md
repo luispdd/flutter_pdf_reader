@@ -22,15 +22,19 @@ The system SHALL determine whether a previous document exists upon application l
 - **THEN** the system SHALL clear the invalid session and display the empty state screen
 
 ### Requirement: Dedicated loading screen display
-The system SHALL present a dedicated loading screen whenever a document is being parsed, initialized, or chunked.
+The system SHALL present a dedicated loading screen strictly during full document initialization, launch restoration, and new file selection/downloading, and SHALL NOT present the dedicated loading screen during page or chunk navigation.
 
 #### Scenario: Display loading screen during file selection
 - **WHEN** the user selects a supported document (PDF or EPUB) from the file picker
-- **THEN** the system SHALL immediately transition to the loading screen showing the document name and preparation status
+- **THEN** the system SHALL immediately transition to the dedicated loading screen showing the document name and preparation status
 
 #### Scenario: Display loading screen during launch restoration
 - **WHEN** an existing document is being loaded on launch
-- **THEN** the system SHALL display the loading screen until all initial text and chunk metadata are ready
+- **THEN** the system SHALL display the dedicated loading screen until all initial text and chunk metadata are ready
+
+#### Scenario: No loading screen during page navigation
+- **WHEN** the user flips to another page or chunk within an already loaded document
+- **THEN** the system SHALL NOT display the dedicated loading screen and SHALL keep the player view mounted
 
 ### Requirement: Continuously rotating loading icon
 The loading screen SHALL display a continuously rotating icon that animates smoothly without freezing or stalling during document processing.
@@ -45,3 +49,18 @@ The system SHALL transition from the loading screen to the player view once docu
 #### Scenario: Successful load transition
 - **WHEN** document parsing and initial text extraction succeed
 - **THEN** the loading screen SHALL be dismissed and the player view SHALL be displayed with the restored or selected chunk
+
+### Requirement: Immediate page navigation display
+The system SHALL display target page text immediately during in-document navigation without visual loading delays or transitional animation interruptions.
+
+#### Scenario: Immediate text update on page turn
+- **WHEN** the user navigates to a different page or chunk using player controls (previous, next, or slider)
+- **THEN** the reader view SHALL immediately update the chunk number and extract the text without leaving the player view
+
+### Requirement: Prevent concurrent document selection
+The system SHALL disable file selection actions while a document is actively being loaded or downloaded.
+
+#### Scenario: File selection disabled during loading
+- **WHEN** a document is in the process of loading or downloading from cloud storage
+- **THEN** file selection buttons SHALL be disabled to prevent starting concurrent file loading operations
+

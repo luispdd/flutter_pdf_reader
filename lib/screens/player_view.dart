@@ -103,7 +103,7 @@ class _PlayerViewState extends State<PlayerView> {
 
             // Upload another
             SecondaryButton(
-              onPressed: () => c.pickFile(),
+              onPressed: c.isDocumentLoading ? null : () => c.pickFile(),
               icon: Icons.file_upload,
               label: 'Select another file',
             ),
