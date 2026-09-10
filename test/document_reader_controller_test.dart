@@ -179,4 +179,33 @@ void main() {
       expect(prefs.getBool('code_filtering'), isTrue);
     },
   );
+
+  test('Synchronously initializes to isLoading=true when prefs contains an existing file', () async {
+    SharedPreferences.setMockInitialValues({
+      'last_document_path': samplePdfFile.path,
+      'last_document_name': 'test_sample.pdf',
+      'last_chunk_index': 1,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final controller = DocumentReaderController(prefs: prefs);
+
+    // Verified synchronously before any delays
+    expect(controller.isLoading, isTrue);
+    expect(controller.documentFileName, 'test_sample.pdf');
+
+    // Allow loadDocument to complete
+    await Future.delayed(const Duration(milliseconds: 200));
+    expect(controller.isLoading, isFalse);
+    expect(controller.totalChunks, 3);
+  });
+
+  test('Synchronously initializes to isLoading=false when prefs has no document', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = DocumentReaderController(prefs: prefs);
+
+    expect(controller.isLoading, isFalse);
+    expect(controller.documentFileName, isNull);
+    expect(controller.totalChunks, 0);
+  });
 }

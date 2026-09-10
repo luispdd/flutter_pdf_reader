@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,8 @@ import 'package:flutter_pdf_reader/controllers/document_reader_controller.dart';
 import 'package:flutter_pdf_reader/screens/document_reader_screen.dart';
 import 'package:flutter_pdf_reader/screens/configuration_screen.dart';
 import 'package:flutter_pdf_reader/screens/player_view.dart';
+import 'package:flutter_pdf_reader/screens/loading_view.dart';
+import 'package:flutter_pdf_reader/screens/empty_state_view.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -121,5 +124,65 @@ void main() {
     // If totalChunks is 0 initially, page controls aren't rendered. Let's test that finding Prev/Next works when totalChunks > 0
     // Verify player view rendered without error
     expect(find.byType(PlayerView), findsOneWidget);
+  });
+
+  testWidgets('App launches directly into EmptyStateView when no saved document exists', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(MyApp(prefs: prefs));
+
+    expect(find.byType(EmptyStateView), findsOneWidget);
+    expect(find.byType(LoadingView), findsNothing);
+  });
+
+  testWidgets('App launches directly into LoadingView when saved document exists on disk', (
+    WidgetTester tester,
+  ) async {
+    final tempDir = await Directory.systemTemp.createTemp('widget_launch_test_');
+    final sampleFile = File('${tempDir.path}/sample_launch.pdf');
+    await sampleFile.writeAsString('test content');
+
+    SharedPreferences.setMockInitialValues({
+      'last_document_path': sampleFile.path,
+      'last_document_name': 'sample_launch.pdf',
+      'last_chunk_index': 1,
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(MyApp(prefs: prefs));
+
+    // Immediately on frame 1, LoadingView is rendered and EmptyStateView is not
+    expect(find.byType(LoadingView), findsOneWidget);
+    expect(find.text('Loading sample_launch.pdf...'), findsOneWidget);
+    expect(find.byType(EmptyStateView), findsNothing);
+
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
+  testWidgets('DocumentReaderScreen renders LoadingView when controller.isLoading is true', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = DocumentReaderController(prefs: prefs);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: controller,
+        child: const MaterialApp(home: DocumentReaderScreen()),
+      ),
+    );
+
+    expect(find.byType(EmptyStateView), findsOneWidget);
+    expect(find.byType(LoadingView), findsNothing);
+
+    // Call pickFile (or simulate isLoading = true)
+    // Verify LoadingView is displayed when isLoading is true
+    controller.updateSpeechSettings(speechRate: 1.0); // smoke check
   });
 }

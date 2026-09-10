@@ -54,10 +54,59 @@ class DocumentReaderController extends ChangeNotifier {
   String? get speechLanguage => _speechLanguage;
   bool get codeFiltering => _codeFiltering;
 
-  DocumentReaderController({bool autoRestore = true}) {
+  DocumentReaderController({SharedPreferences? prefs, bool autoRestore = true}) {
     _initTts();
-    if (autoRestore) {
+    if (prefs != null) {
+      _applySettingsFromPrefs(prefs);
+      final savedPath = prefs.getString(_keyDocumentPath);
+      final savedFileName = prefs.getString(_keyDocumentFileName);
+      final savedChunk = prefs.getInt(_keyCurrentChunk) ?? 1;
+
+      if (savedPath != null && savedPath.isNotEmpty) {
+        final file = File(savedPath);
+        if (file.existsSync()) {
+          _documentPath = savedPath;
+          _documentFileName = savedFileName ?? savedPath.split(Platform.pathSeparator).last;
+          
+          final extension = _documentFileName!.split('.').last.toLowerCase();
+          _isPdf = extension == 'pdf';
+          _isEpub = extension == 'epub';
+
+          if (_isPdf || _isEpub) {
+            _isLoading = true;
+            _totalChunks = 0;
+            if (autoRestore) {
+              _loadDocument(initialChunk: savedChunk);
+            }
+            return;
+          }
+        }
+        _clearSavedSession();
+      }
+      _isLoading = false;
+    } else if (autoRestore) {
       _initSession();
+    }
+  }
+
+  void _applySettingsFromPrefs(SharedPreferences prefs) {
+    final savedRate = prefs.getDouble(_keySpeechRate);
+    if (savedRate != null) {
+      _speechRate = savedRate;
+      try {
+        _flutterTts.setSpeechRate(_speechRate);
+      } catch (_) {}
+    }
+    final savedLanguage = prefs.getString(_keySpeechLanguage);
+    if (savedLanguage != null && savedLanguage.isNotEmpty) {
+      _speechLanguage = savedLanguage;
+      try {
+        _flutterTts.setLanguage(_speechLanguage!);
+      } catch (_) {}
+    }
+    final savedCodeFiltering = prefs.getBool(_keyCodeFiltering);
+    if (savedCodeFiltering != null) {
+      _codeFiltering = savedCodeFiltering;
     }
   }
 
@@ -83,24 +132,7 @@ class DocumentReaderController extends ChangeNotifier {
   Future<void> _restoreSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedRate = prefs.getDouble(_keySpeechRate);
-      if (savedRate != null) {
-        _speechRate = savedRate;
-        try {
-          await _flutterTts.setSpeechRate(_speechRate);
-        } catch (_) {}
-      }
-      final savedLanguage = prefs.getString(_keySpeechLanguage);
-      if (savedLanguage != null && savedLanguage.isNotEmpty) {
-        _speechLanguage = savedLanguage;
-        try {
-          await _flutterTts.setLanguage(_speechLanguage!);
-        } catch (_) {}
-      }
-      final savedCodeFiltering = prefs.getBool(_keyCodeFiltering);
-      if (savedCodeFiltering != null) {
-        _codeFiltering = savedCodeFiltering;
-      }
+      _applySettingsFromPrefs(prefs);
       notifyListeners();
     } catch (e) {
       debugPrint("Error restoring settings: $e");
@@ -242,6 +274,9 @@ class DocumentReaderController extends ChangeNotifier {
       if (result.isNotEmpty && result.first.path != null) {
         _documentPath = result.first.path!;
         _documentFileName = result.first.name;
+        _isLoading = true;
+        _totalChunks = 0;
+        notifyListeners();
         
         final extension = _documentFileName!.split('.').last.toLowerCase();
         _isPdf = extension == 'pdf';
@@ -260,6 +295,9 @@ class DocumentReaderController extends ChangeNotifier {
     _isLoading = true;
     _totalChunks = 0;
     notifyListeners();
+
+    // Yield to the event loop so Flutter renders the LoadingView on the next frame immediately
+    await Future.delayed(Duration.zero);
 
     await stopNarration();
 

@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_pdf_reader/core/app_theme.dart';
 import 'package:flutter_pdf_reader/screens/document_reader_screen.dart';
 import 'package:flutter_pdf_reader/controllers/document_reader_controller.dart';
 import 'package:flutter_pdf_reader/services/foreground_service_manager.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   ForegroundServiceManager.init();
-  runApp(const MyApp());
+  final prefs = await SharedPreferences.getInstance();
+  runApp(MyApp(prefs: prefs));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final SharedPreferences? prefs;
+
+  const MyApp({super.key, this.prefs});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => DocumentReaderController(),
+      create: (_) => DocumentReaderController(prefs: prefs),
       child: MaterialApp(
         title: 'Document Reader',
         debugShowCheckedModeBanner: false,

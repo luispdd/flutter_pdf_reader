@@ -52,14 +52,8 @@ class _PlayerViewState extends State<PlayerView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (c.isLoading && c.totalChunks == 0)
-            const SizedBox(
-              height: 400,
-              child: Center(child: CircularProgressIndicator(color: kAmber)),
-            )
-          else ...[
-            // File chip
-            if (c.documentFileName != null)
+          // File chip
+          if (c.documentFileName != null)
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -130,9 +124,8 @@ class _PlayerViewState extends State<PlayerView> {
                   : 'Read text from clipboard',
             ),
           ],
-        ],
-      ),
-    );
+        ),
+      );
   }
 
   // ═══════════════════════════════════════════════════════════
