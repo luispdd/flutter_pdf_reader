@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:epubx/epubx.dart';
 import 'package:html/parser.dart' show parse;
@@ -18,49 +19,76 @@ class EpubReaderService implements ReaderService {
     _chunks.clear();
     _processedContentFiles.clear();
 
+    final parsedChunks = await Isolate.run(() => _parseEpubFile(path, filterCode));
+    _chunks.addAll(parsedChunks);
+  }
+
+  static Future<List<TextChunk>> _parseEpubFile(String path, bool filterCode) async {
     final File file = File(path);
     final bytes = await file.readAsBytes();
 
     final EpubBook epubBook = await EpubReader.readBook(bytes);
 
+    final List<TextChunk> chunks = [];
+    final Set<String> processedContentFiles = {};
     int chunkIndex = 1;
 
     if (epubBook.Chapters != null) {
       for (final chapter in epubBook.Chapters!) {
-        chunkIndex = _processChapter(chapter, chunkIndex);
+        chunkIndex = _processChapter(
+          chapter: chapter,
+          startIndex: chunkIndex,
+          chunks: chunks,
+          processedContentFiles: processedContentFiles,
+          filterCode: filterCode,
+        );
       }
     }
+
+    return chunks;
   }
 
-  int _processChapter(EpubChapter chapter, int startIndex) {
+  static int _processChapter({
+    required EpubChapter chapter,
+    required int startIndex,
+    required List<TextChunk> chunks,
+    required Set<String> processedContentFiles,
+    required bool filterCode,
+  }) {
     int currentIndex = startIndex;
 
     final contentFileName = chapter.ContentFileName;
     if (contentFileName != null &&
-        !_processedContentFiles.add(contentFileName)) {
+        !processedContentFiles.add(contentFileName)) {
       return currentIndex;
     }
 
     // Clean HTML
-    String cleanText = _stripHtml(chapter.HtmlContent ?? '');
+    String cleanText = _stripHtml(chapter.HtmlContent ?? '', filterCode: filterCode);
 
     if (cleanText.trim().isNotEmpty) {
       // Split into chunks
       final chapterChunks = _smartSplit(cleanText, currentIndex, chapter.Title);
-      _chunks.addAll(chapterChunks);
+      chunks.addAll(chapterChunks);
       currentIndex += chapterChunks.length;
     }
 
     if (chapter.SubChapters != null) {
       for (final subChapter in chapter.SubChapters!) {
-        currentIndex = _processChapter(subChapter, currentIndex);
+        currentIndex = _processChapter(
+          chapter: subChapter,
+          startIndex: currentIndex,
+          chunks: chunks,
+          processedContentFiles: processedContentFiles,
+          filterCode: filterCode,
+        );
       }
     }
 
     return currentIndex;
   }
 
-  String _stripHtml(String htmlString) {
+  static String _stripHtml(String htmlString, {required bool filterCode}) {
     // We want to preserve paragraph breaks.
     // Replace </p> and <br> with newlines before parsing
     String preProcessed = htmlString
@@ -91,7 +119,7 @@ class EpubReaderService implements ReaderService {
     return document.body?.text ?? '';
   }
 
-  List<TextChunk> _smartSplit(String text, int startIndex, String? title) {
+  static List<TextChunk> _smartSplit(String text, int startIndex, String? title) {
     final List<TextChunk> chunks = [];
     int currentIndex = startIndex;
 

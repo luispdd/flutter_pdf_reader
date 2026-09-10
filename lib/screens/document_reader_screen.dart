@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:flutter_pdf_reader/core/app_theme.dart';
 import 'package:flutter_pdf_reader/screens/empty_state_view.dart';
+import 'package:flutter_pdf_reader/screens/loading_view.dart';
 import 'package:flutter_pdf_reader/screens/player_view.dart';
 import 'package:flutter_pdf_reader/screens/clipboard_reader_screen.dart';
 import 'package:flutter_pdf_reader/screens/configuration_screen.dart';
@@ -58,14 +59,22 @@ class DocumentReaderScreen extends StatelessWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: controller.totalChunks == 0 && !controller.isLoading
-              ? EmptyStateView(
-                  onPickFile: () => controller.pickFile(),
-                  onReadClipboard: () => controller.readClipboard(),
-                )
-              : PlayerView(controller: controller),
+          child: _buildBody(controller),
         ),
       ),
     );
+  }
+
+  Widget _buildBody(DocumentReaderController controller) {
+    if (controller.isLoading) {
+      return LoadingView(documentFileName: controller.documentFileName);
+    }
+    if (controller.totalChunks == 0) {
+      return EmptyStateView(
+        onPickFile: () => controller.pickFile(),
+        onReadClipboard: () => controller.readClipboard(),
+      );
+    }
+    return PlayerView(controller: controller);
   }
 }

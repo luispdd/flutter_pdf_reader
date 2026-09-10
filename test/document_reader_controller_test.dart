@@ -10,6 +10,9 @@ import 'package:flutter_pdf_reader/controllers/document_reader_controller.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  late Directory tempDir;
+  late File samplePdfFile;
+
   setUp(() {
     const MethodChannel ttsChannel = MethodChannel('flutter_tts');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -22,9 +25,6 @@ void main() {
           }
         });
   });
-
-  late Directory tempDir;
-  late File samplePdfFile;
 
   setUpAll(() async {
     tempDir = await Directory.systemTemp.createTemp('flutter_pdf_reader_test_');
@@ -179,4 +179,66 @@ void main() {
       expect(prefs.getBool('code_filtering'), isTrue);
     },
   );
+
+  test('Synchronously initializes to isLoading=true when prefs contains an existing file', () async {
+    SharedPreferences.setMockInitialValues({
+      'last_document_path': samplePdfFile.path,
+      'last_document_name': 'test_sample.pdf',
+      'last_chunk_index': 1,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final controller = DocumentReaderController(prefs: prefs);
+
+    // Verified synchronously before any delays
+    expect(controller.isLoading, isTrue);
+    expect(controller.documentFileName, 'test_sample.pdf');
+
+    // Allow loadDocument to complete
+    await Future.delayed(const Duration(milliseconds: 200));
+    expect(controller.isLoading, isFalse);
+    expect(controller.totalChunks, 3);
+  });
+
+  test('Synchronously initializes to isLoading=false when prefs has no document', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = DocumentReaderController(prefs: prefs);
+
+    expect(controller.isLoading, isFalse);
+    expect(controller.documentFileName, isNull);
+    expect(controller.totalChunks, 0);
+  });
+
+  test('Synchronously initializes to isLoading=false when saved file does not exist on disk', () async {
+    SharedPreferences.setMockInitialValues({
+      'last_document_path': '${tempDir.path}/non_existent.pdf',
+      'last_document_name': 'non_existent.pdf',
+      'last_chunk_index': 1,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final controller = DocumentReaderController(prefs: prefs);
+
+    expect(controller.isLoading, isFalse);
+    expect(controller.documentFileName, isNull);
+    expect(controller.totalChunks, 0);
+  });
+
+  test('pickFile sets isLoading to true during loading and transitions upon load completion', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final controller = DocumentReaderController(prefs: prefs);
+
+    expect(controller.isLoading, isFalse);
+
+    final pickFuture = controller.pickFile(
+      customPath: samplePdfFile.path,
+      customName: 'test_sample.pdf',
+    );
+    expect(controller.isLoading, isTrue);
+    expect(controller.documentFileName, 'test_sample.pdf');
+
+    await pickFuture;
+    expect(controller.isLoading, isFalse);
+    expect(controller.totalChunks, 3);
+  });
 }
