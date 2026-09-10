@@ -13,7 +13,7 @@ class PdfReaderService implements ReaderService {
   @override
   Future<void> loadDocument(String path) async {
     final File file = File(path);
-    final Uint8List bytes = await file.readAsBytes();
+    final Uint8List bytes = file.readAsBytesSync();
 
     _document = PdfDocument(inputBytes: bytes);
     _totalPages = _document!.pages.count;

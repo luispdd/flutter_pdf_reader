@@ -16,20 +16,30 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   final SharedPreferences? prefs;
+  final DocumentReaderController? controller;
 
-  const MyApp({super.key, this.prefs});
+  const MyApp({super.key, this.prefs, this.controller});
 
   @override
   Widget build(BuildContext context) {
+    final app = MaterialApp(
+      title: 'Document Reader',
+      debugShowCheckedModeBanner: false,
+      themeMode: ThemeMode.dark,
+      theme: buildAppTheme(),
+      home: const DocumentReaderScreen(),
+    );
+
+    if (controller != null) {
+      return ChangeNotifierProvider.value(
+        value: controller!,
+        child: app,
+      );
+    }
+
     return ChangeNotifierProvider(
       create: (_) => DocumentReaderController(prefs: prefs),
-      child: MaterialApp(
-        title: 'Document Reader',
-        debugShowCheckedModeBanner: false,
-        themeMode: ThemeMode.dark,
-        theme: buildAppTheme(),
-        home: const DocumentReaderScreen(),
-      ),
+      child: app,
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 import 'package:flutter_pdf_reader/main.dart';
 import 'package:flutter_pdf_reader/controllers/document_reader_controller.dart';
@@ -141,9 +142,13 @@ void main() {
   testWidgets('App launches directly into LoadingView when saved document exists on disk', (
     WidgetTester tester,
   ) async {
-    final tempDir = await Directory.systemTemp.createTemp('widget_launch_test_');
+    final tempDir = Directory.systemTemp.createTempSync('widget_launch_test_');
     final sampleFile = File('${tempDir.path}/sample_launch.pdf');
-    await sampleFile.writeAsString('test content');
+    final doc = PdfDocument();
+    doc.pages.add().graphics.drawString('Launch Doc', PdfStandardFont(PdfFontFamily.helvetica, 12));
+    final bytes = doc.saveSync();
+    doc.dispose();
+    sampleFile.writeAsBytesSync(bytes);
 
     SharedPreferences.setMockInitialValues({
       'last_document_path': sampleFile.path,
@@ -159,14 +164,43 @@ void main() {
     expect(find.text('Loading sample_launch.pdf...'), findsOneWidget);
     expect(find.byType(EmptyStateView), findsNothing);
 
-    if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
+    // Complete loading
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(PlayerView), findsOneWidget);
+    expect(find.byType(LoadingView), findsNothing);
+
+    if (tempDir.existsSync()) {
+      tempDir.deleteSync(recursive: true);
     }
   });
 
-  testWidgets('DocumentReaderScreen renders LoadingView when controller.isLoading is true', (
+  testWidgets('App launches directly into EmptyStateView when saved document does not exist on disk', (
     WidgetTester tester,
   ) async {
+    SharedPreferences.setMockInitialValues({
+      'last_document_path': '/non/existent/path/missing_file.pdf',
+      'last_document_name': 'missing_file.pdf',
+      'last_chunk_index': 1,
+    });
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(MyApp(prefs: prefs));
+
+    expect(find.byType(EmptyStateView), findsOneWidget);
+    expect(find.byType(LoadingView), findsNothing);
+  });
+
+  testWidgets('DocumentReaderScreen renders LoadingView during pickFile and transitions to PlayerView', (
+    WidgetTester tester,
+  ) async {
+    final tempDir = Directory.systemTemp.createTempSync('widget_pick_test_');
+    final sampleFile = File('${tempDir.path}/picked_sample.pdf');
+    final doc = PdfDocument();
+    doc.pages.add().graphics.drawString('Picked Doc', PdfStandardFont(PdfFontFamily.helvetica, 12));
+    final bytes = doc.saveSync();
+    doc.dispose();
+    sampleFile.writeAsBytesSync(bytes);
+
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final controller = DocumentReaderController(prefs: prefs);
@@ -181,8 +215,28 @@ void main() {
     expect(find.byType(EmptyStateView), findsOneWidget);
     expect(find.byType(LoadingView), findsNothing);
 
-    // Call pickFile (or simulate isLoading = true)
-    // Verify LoadingView is displayed when isLoading is true
-    controller.updateSpeechSettings(speechRate: 1.0); // smoke check
+    // Call pickFile with customPath
+    final pickFuture = controller.pickFile(
+      customPath: sampleFile.path,
+      customName: 'picked_sample.pdf',
+    );
+
+    // Immediately shows LoadingView
+    await tester.pump();
+    expect(find.byType(LoadingView), findsOneWidget);
+    expect(find.text('Loading picked_sample.pdf...'), findsOneWidget);
+    expect(find.byType(EmptyStateView), findsNothing);
+
+    // Wait for document loading to complete
+    await tester.pump(const Duration(milliseconds: 50));
+    await pickFuture;
+    await tester.pump();
+
+    expect(find.byType(PlayerView), findsOneWidget);
+    expect(find.byType(LoadingView), findsNothing);
+
+    if (tempDir.existsSync()) {
+      tempDir.deleteSync(recursive: true);
+    }
   });
 }

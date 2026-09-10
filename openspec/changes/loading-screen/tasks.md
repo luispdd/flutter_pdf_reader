@@ -17,5 +17,5 @@
 
 ## 4. Integration Verification
 
-- [ ] 4.1 Update and expand `test/document_reader_controller_test.dart` and `test/widget_test.dart` to verify launch states (immediate `EmptyStateView` when no file exists, immediate `LoadingView` when a saved file exists, and `LoadingView` during `pickFile`)
-- [ ] 4.2 Run `flutter test` and `dart analyze` to verify all tests pass and no lint or analysis issues exist
+- [x] 4.1 Update and expand `test/document_reader_controller_test.dart` and `test/widget_test.dart` to verify launch states (immediate `EmptyStateView` when no file exists, immediate `LoadingView` when a saved file exists, and `LoadingView` during `pickFile`)
+- [x] 4.2 Run `flutter test` and `dart analyze` to verify all tests pass and no lint or analysis issues exist

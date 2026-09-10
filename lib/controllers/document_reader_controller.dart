@@ -264,8 +264,23 @@ class DocumentReaderController extends ChangeNotifier {
     }
   }
 
-  Future<void> pickFile() async {
+  Future<void> pickFile({String? customPath, String? customName}) async {
     try {
+      if (customPath != null) {
+        _documentPath = customPath;
+        _documentFileName = customName ?? customPath.split(Platform.pathSeparator).last;
+        _isLoading = true;
+        _totalChunks = 0;
+        notifyListeners();
+
+        final extension = _documentFileName!.split('.').last.toLowerCase();
+        _isPdf = extension == 'pdf';
+        _isEpub = extension == 'epub';
+
+        await _loadDocument(initialChunk: 1);
+        return;
+      }
+
       List<PlatformFile> result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'epub'],
