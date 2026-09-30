@@ -13,9 +13,11 @@ Currently:
 **Goals:**
 - Guarantee immediate rendering of `LoadingView` on launch when a saved document exists on disk, without flashing `EmptyStateView`.
 - Guarantee immediate rendering of `EmptyStateView` on launch when no saved document exists.
-- Create a dedicated, reusable `LoadingView` widget with an amber theme and a continuously rotating icon.
+- Create a dedicated, reusable `LoadingView` widget with an amber theme, a continuously rotating icon, and a user-accessible "Cancel" button.
+- Provide user cancellation of document loading at any stage (during startup session restoration or new file selection) to safely return to `EmptyStateView`.
 - Offload CPU-intensive EPUB parsing to a background isolate using `Isolate.run` so the UI isolate never freezes.
 - Seamlessly transition from `LoadingView` to `PlayerView` upon load completion.
+- Provide comprehensive coding agent guidelines and project documentation (`AGENTS.md`, `README.md`).
 
 **Non-Goals:**
 - Redesigning the `PlayerView` controls or waveform layout.
@@ -34,7 +36,7 @@ Currently:
   - *Show a splash/loading screen on every launch while reading prefs asynchronously*: This causes a perceptible loading flash even when the user has no document.
   - *Keep async restore in constructor without preloading*: Causes `EmptyStateView` to flash before `_loadDocument` is called.
 
-### 2. Dedicated `LoadingView` Widget with Continuous Rotation
+### 2. Dedicated `LoadingView` Widget with Continuous Rotation and Cancel Action
 
 **Decision**: Build a standalone widget `LoadingView` in `lib/screens/loading_view.dart`.
 - **UI Architecture**:
@@ -42,6 +44,7 @@ Currently:
   - Wraps a themed icon (such as `Icons.autorenew_rounded` or `Icons.sync_rounded`) in `RotationTransition`.
   - Pairs the rotating icon with an amber glow effect and an outer circular accent/track, styled consistently with `EmptyStateView` and `app_theme.dart`.
   - Displays the document file name (if known) and a contextual status label ("Loading document...", "Preparing pages, please wait...").
+  - Includes a styled "Cancel" button (`OutlinedButton.icon`) when `onCancel` is provided, styled with subtle border and text accent matching the dark theme.
 - **Alternatives Considered**:
   - *Standard `CircularProgressIndicator` alone*: Does not feel like a custom styled spinning icon and lacks document title context.
   - *Animated GIF / Lottie asset*: Adds unnecessary external dependencies or binary assets; pure Flutter `RotationTransition` is lightweight, vector-sharp, and 60/120 FPS performant.
@@ -59,7 +62,10 @@ Currently:
 **Decision**: Structure the view selection in `DocumentReaderScreen.build()` cleanly:
 ```dart
 if (controller.isLoading) {
-  return LoadingView(fileName: controller.documentFileName);
+  return LoadingView(
+    documentFileName: controller.documentFileName,
+    onCancel: () => controller.cancelLoading(),
+  );
 }
 if (controller.totalChunks == 0) {
   return EmptyStateView(
@@ -69,10 +75,25 @@ if (controller.totalChunks == 0) {
 }
 return PlayerView(controller: controller);
 ```
-- **Rationale**: Eliminates the conditional hack inside `PlayerView` where a 400px SizedBox with a loader was rendered. Separates loading, empty, and player states into distinct view concerns.
+- **Rationale**: Eliminates the conditional hack inside `PlayerView` where a 400px SizedBox with a loader was rendered. Separates loading, empty, and player states into distinct view concerns and provides direct cancellation binding.
+
+### 5. Cancellable Document Loading via Generation Token (`_loadGeneration`)
+
+**Decision**: Manage in-flight loading requests with an integer generation counter `_loadGeneration` in `DocumentReaderController`.
+- **Lifecycle & Mechanism**:
+  - When `_loadDocument` begins, it increments `final currentGen = ++_loadGeneration`.
+  - After every asynchronous gap (`Future.delayed`, `_activeReader!.loadDocument`, `_extractTextForCurrentChunk`), it verifies `_loadGeneration == currentGen`.
+  - When `cancelLoading()` is called, `_loadGeneration` is incremented, `_activeReader?.dispose()` is invoked, all document state is reset (`_documentPath = null`, `_documentFileName = null`, `_isLoading = false`, `_totalChunks = 0`), and `_clearSavedSession()` purges persistent preferences so subsequent launches don't attempt reloading the cancelled file.
+  - The controller calls `notifyListeners()`, causing `DocumentReaderScreen` to immediately render `EmptyStateView`.
+
+### 6. Coding Agent Handbook & Project Guidance
+
+**Decision**: Maintain `AGENTS.md` and updated `README.md` at the project root.
+- **Rationale**: Equips automated coding agents and pair-programming assistants with immediate architectural clarity, directory layouts, and execution instructions without requiring full codebase re-exploration. Documents test runner precautions regarding infinite repeating animations.
 
 ## Risks / Trade-offs
 
 - **[Risk] Preloading `SharedPreferences` in `main()` slows down startup** → `SharedPreferences.getInstance()` on desktop and mobile reads an in-memory cached XML/key-value file, typically completing in < 10ms. This is imperceptible compared to native app launch latency.
 - **[Risk] Existing unit tests initialize `DocumentReaderController` without passing `prefs`** → The constructor parameter `prefs` will be optional (`SharedPreferences? prefs`). When `null`, it falls back gracefully to calling `_initSession()` asynchronously, ensuring 100% backward compatibility with all existing tests.
 - **[Risk] `Isolate.run` compatibility** → `Isolate.run` is part of core Dart 2.19+ and Flutter 3.7+ across Linux, Android, iOS, Windows, and macOS.
+- **[Risk] Infinite animation in widget tests** → `LoadingView` continuously repeats. Calling `tester.pumpAndSettle()` will wait indefinitely. Tests and `AGENTS.md` document using `tester.pump(Duration)` instead.

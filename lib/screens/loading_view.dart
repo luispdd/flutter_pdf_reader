@@ -3,10 +3,12 @@ import 'package:flutter_pdf_reader/core/app_theme.dart';
 
 class LoadingView extends StatefulWidget {
   final String? documentFileName;
+  final VoidCallback? onCancel;
 
   const LoadingView({
     super.key,
     this.documentFileName,
+    this.onCancel,
   });
 
   @override
@@ -99,6 +101,36 @@ class _LoadingViewState extends State<LoadingView>
             height: 1.5,
           ),
         ),
+        if (widget.onCancel != null) ...[
+          const SizedBox(height: 28),
+          Center(
+            child: OutlinedButton.icon(
+              key: const Key('loading_cancel_button'),
+              onPressed: widget.onCancel,
+              icon: const Icon(Icons.close, size: 18),
+              label: const Text(
+                'Cancel',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white.withValues(alpha: 0.8),
+                side: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  width: 1,
+                ),
+                backgroundColor: Colors.white.withValues(alpha: 0.04),
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
         const Spacer(flex: 3),
       ],
     );

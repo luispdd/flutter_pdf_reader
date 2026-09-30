@@ -59,4 +59,43 @@ void main() {
 
     expect(advancedTurns, isNot(equals(initialTurns)));
   });
+
+  testWidgets('LoadingView renders and triggers Cancel button when onCancel provided', (
+    WidgetTester tester,
+  ) async {
+    bool cancelled = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LoadingView(
+            documentFileName: 'test.pdf',
+            onCancel: () {
+              cancelled = true;
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('loading_cancel_button')), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('loading_cancel_button')));
+    expect(cancelled, isTrue);
+  });
+
+  testWidgets('LoadingView does not render Cancel button when onCancel is null', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: LoadingView(documentFileName: 'test.pdf'),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('loading_cancel_button')), findsNothing);
+  });
 }

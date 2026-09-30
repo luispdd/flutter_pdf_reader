@@ -41,6 +41,7 @@ class DocumentReaderController extends ChangeNotifier {
   String? _speechLanguage;
   bool _codeFiltering = false;
   Process? _linuxTtsProcess;
+  int _loadGeneration = 0;
 
   String? get documentFileName => _documentFileName;
   int get totalChunks => _totalChunks;
@@ -326,6 +327,8 @@ class DocumentReaderController extends ChangeNotifier {
   Future<void> _loadDocument({int initialChunk = 1}) async {
     if (_documentPath == null) return;
 
+    final int currentGen = ++_loadGeneration;
+
     _isDocumentLoading = true;
     _isLoading = true;
     _totalChunks = 0;
@@ -333,8 +336,10 @@ class DocumentReaderController extends ChangeNotifier {
 
     // Yield to the event loop so Flutter renders the LoadingView on the next frame immediately
     await Future.delayed(Duration.zero);
+    if (_loadGeneration != currentGen) return;
 
     await stopNarration();
+    if (_loadGeneration != currentGen) return;
 
     _activeReader?.dispose();
     
@@ -351,26 +356,56 @@ class DocumentReaderController extends ChangeNotifier {
 
     try {
       await _activeReader!.loadDocument(_documentPath!);
+      if (_loadGeneration != currentGen) return;
+
       _totalChunks = _activeReader!.totalChunks;
       if (_totalChunks > 0) {
         _currentChunk = initialChunk.clamp(1, _totalChunks);
         await _extractTextForCurrentChunk();
+        if (_loadGeneration != currentGen) return;
         await _saveCurrentSession();
       } else {
         _currentChunk = 1;
         _currentChunkText = "";
       }
     } catch (e) {
+      if (_loadGeneration != currentGen) return;
       debugPrint("Error loading document: $e");
       _totalChunks = 0;
       _currentChunk = 1;
       _currentChunkText = "";
       await _clearSavedSession();
     } finally {
-      _isDocumentLoading = false;
-      _isLoading = false;
-      notifyListeners();
+      if (_loadGeneration == currentGen) {
+        _isDocumentLoading = false;
+        _isLoading = false;
+        notifyListeners();
+      }
     }
+  }
+
+  /// Cancels an in-flight document loading process, clearing state and saved session.
+  Future<void> cancelLoading() async {
+    if (!_isLoading && !_isDocumentLoading) return;
+
+    _loadGeneration++;
+    await stopNarration();
+
+    _activeReader?.dispose();
+    _activeReader = null;
+
+    _documentPath = null;
+    _documentFileName = null;
+    _isPdf = false;
+    _isEpub = false;
+    _totalChunks = 0;
+    _currentChunk = 1;
+    _currentChunkText = "";
+    _isDocumentLoading = false;
+    _isLoading = false;
+
+    await _clearSavedSession();
+    notifyListeners();
   }
 
   Future<void> setChunk(int chunkIndex) async {
