@@ -15,14 +15,19 @@
 - [x] 3.3 Update `DocumentReaderScreen` in `lib/screens/document_reader_screen.dart` to cleanly switch between `LoadingView` (when `isLoading`), `EmptyStateView` (when `totalChunks == 0`), and `PlayerView` (when chunks exist)
 - [x] 3.4 Remove the legacy embedded `SizedBox` progress indicator from `PlayerView` in `lib/screens/player_view.dart`
 
-## 4. Cancellable Loading & Cancel Button
+## 4. Integration Verification
 
-- [x] 4.1 Add an `onCancel` callback and a styled "Cancel" button to `LoadingView` in `lib/screens/loading_view.dart`
-- [x] 4.2 Implement `cancelLoading()` with load generation tokens in `DocumentReaderController` to allow cancelling boot restoration and new document selection, clearing state back to `EmptyStateView`
-- [x] 4.3 Wire `onCancel: () => controller.cancelLoading()` in `DocumentReaderScreen`
-- [x] 4.4 Add unit/widget tests for the Cancel button in `test/loading_view_test.dart` and cancellation behavior in `test/document_reader_controller_test.dart`
+- [x] 4.1 Update and expand `test/document_reader_controller_test.dart` and `test/widget_test.dart` to verify launch states (immediate `EmptyStateView` when no file exists, immediate `LoadingView` when a saved file exists, and `LoadingView` during `pickFile`)
+- [x] 4.2 Run `flutter test` and `dart analyze` to verify all tests pass and no lint or analysis issues exist
 
-## 5. Developer & Coding Agent Guidance
+## 5. Cancellable Loading & Cancel Button
 
-- [x] 5.1 Create `AGENTS.md` containing repository architecture, directory breakdown, essential development commands, and agent gotchas (repeating animations in tests, isolate boundaries, load generation tokens)
-- [x] 5.2 Update `README.md` with comprehensive features, quick start guide, architectural overview, and a link to `AGENTS.md`
+- [x] 5.1 Add an `onCancel` callback and a styled "Cancel" button to `LoadingView` in `lib/screens/loading_view.dart`
+- [x] 5.2 Implement `cancelLoading()` with load generation tokens in `DocumentReaderController` to allow cancelling boot restoration and new document selection, clearing state back to `EmptyStateView`
+- [x] 5.3 Wire `onCancel: () => controller.cancelLoading()` in `DocumentReaderScreen`
+- [x] 5.4 Add unit/widget tests for the Cancel button in `test/loading_view_test.dart` and cancellation behavior in `test/document_reader_controller_test.dart`
+
+## 6. Developer & Coding Agent Guidance
+
+- [x] 6.1 Create `AGENTS.md` containing repository architecture, directory breakdown, essential development commands, and agent gotchas (repeating animations in tests, isolate boundaries, load generation tokens)
+- [x] 6.2 Update `README.md` with comprehensive features, quick start guide, architectural overview, and a link to `AGENTS.md`

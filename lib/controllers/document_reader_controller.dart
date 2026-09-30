@@ -35,6 +35,7 @@ class DocumentReaderController extends ChangeNotifier {
   bool _isPlaying = false;
   bool _isReadingClipboard = false;
   bool _isLoading = false;
+  bool _isDocumentLoading = false;
   String _currentChunkText = "";
   double _speechRate = 1.0;
   String? _speechLanguage;
@@ -48,6 +49,7 @@ class DocumentReaderController extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   bool get isReadingClipboard => _isReadingClipboard;
   bool get isLoading => _isLoading;
+  bool get isDocumentLoading => _isDocumentLoading;
   String get currentChunkText => _currentChunkText;
   bool get isPdf => _isPdf;
   bool get isEpub => _isEpub;
@@ -74,6 +76,7 @@ class DocumentReaderController extends ChangeNotifier {
           _isEpub = extension == 'epub';
 
           if (_isPdf || _isEpub) {
+            _isDocumentLoading = true;
             _isLoading = true;
             _totalChunks = 0;
             if (autoRestore) {
@@ -84,6 +87,7 @@ class DocumentReaderController extends ChangeNotifier {
         }
         _clearSavedSession();
       }
+      _isDocumentLoading = false;
       _isLoading = false;
     } else if (autoRestore) {
       _initSession();
@@ -265,11 +269,37 @@ class DocumentReaderController extends ChangeNotifier {
     }
   }
 
-  Future<void> pickFile() async {
+  Future<void> pickFile({String? customPath, String? customName}) async {
+    if (_isDocumentLoading) return;
     try {
+      if (customPath != null) {
+        _isDocumentLoading = true;
+        _documentPath = customPath;
+        _documentFileName = customName ?? customPath.split(Platform.pathSeparator).last;
+        _isLoading = true;
+        _totalChunks = 0;
+        notifyListeners();
+
+        final extension = _documentFileName!.split('.').last.toLowerCase();
+        _isPdf = extension == 'pdf';
+        _isEpub = extension == 'epub';
+
+        await _loadDocument(initialChunk: 1);
+        return;
+      }
+
+      _isDocumentLoading = true;
+      notifyListeners();
+
       List<PlatformFile> result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'epub'],
+        onFileLoading: (FilePickerStatus status) {
+          if (status == FilePickerStatus.picking && !_isDocumentLoading) {
+            _isDocumentLoading = true;
+            notifyListeners();
+          }
+        },
       );
 
       if (result.isNotEmpty && result.first.path != null) {
@@ -284,9 +314,13 @@ class DocumentReaderController extends ChangeNotifier {
         _isEpub = extension == 'epub';
         
         await _loadDocument(initialChunk: 1);
+      } else {
+        _isDocumentLoading = false;
+        notifyListeners();
       }
     } catch (e) {
-      // User canceled or error
+      _isDocumentLoading = false;
+      notifyListeners();
     }
   }
 
@@ -295,6 +329,7 @@ class DocumentReaderController extends ChangeNotifier {
 
     final int currentGen = ++_loadGeneration;
 
+    _isDocumentLoading = true;
     _isLoading = true;
     _totalChunks = 0;
     notifyListeners();
@@ -313,6 +348,7 @@ class DocumentReaderController extends ChangeNotifier {
     } else if (_isEpub) {
       _activeReader = EpubReaderService(filterCode: _codeFiltering);
     } else {
+      _isDocumentLoading = false;
       _isLoading = false;
       notifyListeners();
       return; // Unsupported type
@@ -339,17 +375,18 @@ class DocumentReaderController extends ChangeNotifier {
       _currentChunk = 1;
       _currentChunkText = "";
       await _clearSavedSession();
+    } finally {
+      if (_loadGeneration == currentGen) {
+        _isDocumentLoading = false;
+        _isLoading = false;
+        notifyListeners();
+      }
     }
-    
-    if (_loadGeneration != currentGen) return;
-
-    _isLoading = false;
-    notifyListeners();
   }
 
   /// Cancels an in-flight document loading process, clearing state and saved session.
   Future<void> cancelLoading() async {
-    if (!_isLoading) return;
+    if (!_isLoading && !_isDocumentLoading) return;
 
     _loadGeneration++;
     await stopNarration();
@@ -364,6 +401,7 @@ class DocumentReaderController extends ChangeNotifier {
     _totalChunks = 0;
     _currentChunk = 1;
     _currentChunkText = "";
+    _isDocumentLoading = false;
     _isLoading = false;
 
     await _clearSavedSession();
