@@ -50,6 +50,18 @@ The system SHALL transition from the loading screen to the player view once docu
 - **WHEN** document parsing and initial text extraction succeed
 - **THEN** the loading screen SHALL be dismissed and the player view SHALL be displayed with the restored or selected chunk
 
+### Requirement: Cancellable document loading
+The system SHALL provide a user-accessible cancel action on the loading screen that safely terminates ongoing loading and restores an empty state.
+
+#### Scenario: Cancel loading during launch restoration
+- **WHEN** a saved document is being loaded on application launch and the user taps the Cancel button
+- **THEN** the system SHALL immediately cancel document processing, clear the saved session in persistent storage, and transition to the empty state screen
+
+#### Scenario: Cancel loading during file selection
+- **WHEN** the user selects a new document from the file picker and subsequently taps the Cancel button on the loading screen
+- **THEN** the system SHALL immediately invalidate background parsing, discard partial chunk data, and display the empty state screen
+
+
 ### Requirement: Immediate page navigation display
 The system SHALL display target page text immediately during in-document navigation without visual loading delays or transitional animation interruptions.
 
