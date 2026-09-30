@@ -67,7 +67,10 @@ class DocumentReaderScreen extends StatelessWidget {
 
   Widget _buildBody(DocumentReaderController controller) {
     if (controller.isLoading) {
-      return LoadingView(documentFileName: controller.documentFileName);
+      return LoadingView(
+        documentFileName: controller.documentFileName,
+        onCancel: () => controller.cancelLoading(),
+      );
     }
     if (controller.totalChunks == 0) {
       return EmptyStateView(

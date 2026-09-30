@@ -13,11 +13,13 @@ This change introduces a dedicated document loading screen with a continuously r
 - **Continuously Rotating Icon**: Implement an animated, continuously spinning icon for the loading screen that rotates smoothly at 60/120 FPS.
 - **Offload Document Parsing**: Move heavy parsing (such as EPUB unzipping, HTML DOM parsing, and chunk generation) to a background isolate (`Isolate.run`), preventing UI isolate saturation and ensuring animations remain fluid.
 - **Consistent File Selection Flow**: When the user selects a new document via `pickFile()`, the application transitions immediately to `LoadingView` while the new file is parsed in the background.
+- **Cancellable Document Loading**: Add a "Cancel" button to `LoadingView` so that loading can be aborted at any time—both during startup session restoration and when picking a new document—safely invalidating background processing and transitioning back to `EmptyStateView`.
+- **Agent and Project Documentation**: Introduce `AGENTS.md` and update `README.md` to document architecture, critical lifecycle caveats (e.g., test runner timeouts on infinite animations, load generation cancellation), and commands to accelerate future agent workflows.
 
 ## Capabilities
 
 ### New Capabilities
-- `document-loading`: Covers the loading lifecycle, initial launch state resolution (restoring vs empty), dedicated loading screen display with continuously rotating icon, and background isolate processing.
+- `document-loading`: Covers the loading lifecycle, initial launch state resolution (restoring vs empty), dedicated loading screen display with continuously rotating icon, background isolate processing, and cancellation handling.
 
 ### Modified Capabilities
 <!-- None, as there are no existing specs in the project. -->
@@ -25,12 +27,15 @@ This change introduces a dedicated document loading screen with a continuously r
 ## Impact
 
 - **UI Components**:
-  - New `LoadingView` widget in `lib/screens/loading_view.dart`.
-  - Updated `DocumentReaderScreen` in `lib/screens/document_reader_screen.dart` to cleanly switch between `LoadingView`, `EmptyStateView`, and `PlayerView`.
+  - New `LoadingView` widget in `lib/screens/loading_view.dart` with rotating icon and Cancel button.
+  - Updated `DocumentReaderScreen` in `lib/screens/document_reader_screen.dart` to cleanly switch between `LoadingView`, `EmptyStateView`, and `PlayerView`, wiring the cancel action.
   - Cleaned up `PlayerView` in `lib/screens/player_view.dart` to remove the embedded `c.isLoading && c.totalChunks == 0` loading container.
 - **Controllers & Services**:
-  - Updated `DocumentReaderController` in `lib/controllers/document_reader_controller.dart` to support synchronous initial state resolution via preloaded `SharedPreferences` and handle loading states properly.
+  - Updated `DocumentReaderController` in `lib/controllers/document_reader_controller.dart` to support synchronous initial state resolution via preloaded `SharedPreferences`, manage in-flight load generation tokens, and implement `cancelLoading()`.
   - Updated `main.dart` to preload `SharedPreferences` before `runApp`.
   - Updated `EpubReaderService` in `lib/readers/epub_reader_service.dart` to parse chapters in a background isolate (`Isolate.run`).
+- **Documentation**:
+  - Created `AGENTS.md` for AI agent instructions, architecture notes, and test gotchas.
+  - Updated `README.md` with complete project capabilities and instructions.
 - **Tests**:
-  - Added widget tests for `LoadingView` and initial startup states.
+  - Added widget and unit tests for `LoadingView` (including Cancel button interaction), initial startup states, and controller cancellation logic.

@@ -208,4 +208,33 @@ void main() {
     expect(controller.documentFileName, isNull);
     expect(controller.totalChunks, 0);
   });
+
+  test('cancelLoading resets loading state, document info, and clears session', () async {
+    SharedPreferences.setMockInitialValues({
+      'last_document_path': samplePdfFile.path,
+      'last_document_name': 'test_sample.pdf',
+      'last_chunk_index': 1,
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final controller = DocumentReaderController(prefs: prefs);
+
+    expect(controller.isLoading, isTrue);
+
+    // Cancel loading immediately
+    await controller.cancelLoading();
+
+    expect(controller.isLoading, isFalse);
+    expect(controller.documentFileName, isNull);
+    expect(controller.totalChunks, 0);
+    expect(controller.currentChunkText, isEmpty);
+
+    // Even after waiting, background loading should not overwrite cancelled state
+    await Future.delayed(const Duration(milliseconds: 200));
+    expect(controller.isLoading, isFalse);
+    expect(controller.documentFileName, isNull);
+    expect(controller.totalChunks, 0);
+
+    // Preferences should be cleared
+    expect(prefs.getString('last_document_path'), isNull);
+  });
 }
