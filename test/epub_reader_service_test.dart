@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_pdf_reader/readers/epub_reader_service.dart';
@@ -21,7 +22,9 @@ void main() {
   Future<File> createSampleEpub(String htmlBody) async {
     final archive = Archive();
     const mimetype = 'application/epub+zip';
-    archive.addFile(ArchiveFile('mimetype', mimetype.length, mimetype.codeUnits));
+    archive.addFile(
+      ArchiveFile('mimetype', mimetype.length, mimetype.codeUnits),
+    );
 
     const containerXml = '''<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -29,8 +32,13 @@ void main() {
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
 </container>''';
-    archive.addFile(ArchiveFile(
-        'META-INF/container.xml', containerXml.length, containerXml.codeUnits));
+    archive.addFile(
+      ArchiveFile(
+        'META-INF/container.xml',
+        containerXml.length,
+        containerXml.codeUnits,
+      ),
+    );
 
     const contentOpf = '''<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
@@ -46,8 +54,9 @@ void main() {
     <itemref idref="chapter1"/>
   </spine>
 </package>''';
-    archive.addFile(ArchiveFile(
-        'OEBPS/content.opf', contentOpf.length, contentOpf.codeUnits));
+    archive.addFile(
+      ArchiveFile('OEBPS/content.opf', contentOpf.length, contentOpf.codeUnits),
+    );
 
     const tocNcx = '''<?xml version="1.0" encoding="utf-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
@@ -62,9 +71,12 @@ void main() {
     </navPoint>
   </navMap>
 </ncx>''';
-    archive.addFile(ArchiveFile('OEBPS/toc.ncx', tocNcx.length, tocNcx.codeUnits));
+    archive.addFile(
+      ArchiveFile('OEBPS/toc.ncx', tocNcx.length, tocNcx.codeUnits),
+    );
 
-    final htmlContent = '''<!DOCTYPE html>
+    final htmlContent =
+        '''<!DOCTYPE html>
 <html>
 <head><title>Chapter 1</title></head>
 <body>
@@ -72,11 +84,98 @@ $htmlBody
 </body>
 </html>''';
     archive.addFile(
-        ArchiveFile('OEBPS/chapter1.html', htmlContent.length, htmlContent.codeUnits));
+      ArchiveFile(
+        'OEBPS/chapter1.html',
+        htmlContent.length,
+        htmlContent.codeUnits,
+      ),
+    );
 
     final zipData = ZipEncoder().encode(archive);
-    final file =
-        File('${tempDir.path}/test_${DateTime.now().microsecondsSinceEpoch}.epub');
+    final file = File(
+      '${tempDir.path}/test_${DateTime.now().microsecondsSinceEpoch}.epub',
+    );
+    await file.writeAsBytes(zipData!);
+    return file;
+  }
+
+  Future<File> createSampleEpubWithKobo(String htmlBody) async {
+    final archive = Archive();
+    const mimetype = 'application/epub+zip';
+    archive.addFile(
+      ArchiveFile('mimetype', mimetype.length, mimetype.codeUnits),
+    );
+
+    const containerXml = '''<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>''';
+    archive.addFile(
+      ArchiveFile(
+        'META-INF/container.xml',
+        containerXml.length,
+        containerXml.codeUnits,
+      ),
+    );
+
+    const contentOpf = '''<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Test Book</dc:title>
+    <dc:identifier id="bookid">urn:uuid:12345</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="chapter1" href="chapter1.html" media-type="application/xhtml+xml"/>
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="kobo-js" href="../js/kobo.js" media-type="application/javascript"/>
+  </manifest>
+  <spine toc="ncx">
+    <itemref idref="chapter1"/>
+  </spine>
+</package>''';
+    archive.addFile(
+      ArchiveFile('OEBPS/content.opf', contentOpf.length, contentOpf.codeUnits),
+    );
+
+    const tocNcx = '''<?xml version="1.0" encoding="utf-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="urn:uuid:12345"/>
+  </head>
+  <docTitle><text>Test Book</text></docTitle>
+  <navMap>
+    <navPoint id="navpoint-1" playOrder="1">
+      <navLabel><text>Chapter 1</text></navLabel>
+      <content src="chapter1.html"/>
+    </navPoint>
+  </navMap>
+</ncx>''';
+    archive.addFile(
+      ArchiveFile('OEBPS/toc.ncx', tocNcx.length, tocNcx.codeUnits),
+    );
+
+    final htmlContent =
+        '''<!DOCTYPE html>
+<html>
+<head><title>Chapter 1</title></head>
+<body>
+$htmlBody
+</body>
+</html>''';
+    archive.addFile(
+      ArchiveFile(
+        'OEBPS/chapter1.html',
+        htmlContent.length,
+        htmlContent.codeUnits,
+      ),
+    );
+
+    final zipData = ZipEncoder().encode(archive);
+    final file = File(
+      '${tempDir.path}/test_kobo_${DateTime.now().microsecondsSinceEpoch}.epub',
+    );
     await file.writeAsBytes(zipData!);
     return file;
   }
@@ -127,5 +226,16 @@ $htmlBody
     expect(chunkText, isNot(contains('source-code content')));
     expect(chunkText, isNot(contains('programlisting content')));
     expect(chunkText, isNot(contains('program-listing content')));
+  });
+
+  test('EpubReaderService handles EPUBs with missing manifest resources like kobo.js', () async {
+    const html = '<p>Chapter with kobo reference.</p>';
+    final file = await createSampleEpubWithKobo(html);
+    final reader = EpubReaderService();
+    await reader.loadDocument(file.path);
+
+    expect(reader.totalChunks, greaterThan(0));
+    final chunkText = await reader.extractTextForChunk(1);
+    expect(chunkText, contains('Chapter with kobo reference.'));
   });
 }

@@ -54,78 +54,75 @@ class _PlayerViewState extends State<PlayerView> {
         children: [
           // File chip
           if (c.documentFileName != null)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: kAmber.withValues(alpha: 0.10),
-                  border: Border.all(color: kAmber.withValues(alpha: 0.18)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.insert_drive_file_outlined,
-                      size: 20,
-                      color: kAmberLight,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        c.documentFileName!,
-                        style: TextStyle(fontSize: 13, color: kAmberLight),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: kAmber.withValues(alpha: 0.10),
+                border: Border.all(color: kAmber.withValues(alpha: 0.18)),
+                borderRadius: BorderRadius.circular(10),
               ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.insert_drive_file_outlined,
+                    size: 20,
+                    color: kAmberLight,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      c.documentFileName!,
+                      style: TextStyle(fontSize: 13, color: kAmberLight),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 24),
+
+          // Page controls + play
+          if (c.totalChunks > 0) ...[
+            _pageControls(c, chunkTypeLabel),
+            const SizedBox(height: 20),
+            _playButton(c),
             const SizedBox(height: 24),
-
-            // Page controls + play
-            if (c.totalChunks > 0) ...[
-              _pageControls(c, chunkTypeLabel),
-              const SizedBox(height: 20),
-              _playButton(c),
-              const SizedBox(height: 24),
-            ],
-
-            // Toggle text
-            OutlineButton(
-              onPressed: () => setState(() => _showingText = true),
-              icon: Icons.text_snippet_outlined,
-              label: 'Show $chunkTypeLabel text',
-            ),
-            const SizedBox(height: 12),
-
-            // Upload another
-            SecondaryButton(
-              onPressed: c.isDocumentLoading ? null : () => c.pickFile(),
-              icon: Icons.file_upload,
-              label: 'Select another file',
-            ),
-            const SizedBox(height: 12),
-
-            // Clipboard
-            SecondaryButton(
-              onPressed: () {
-                if (c.isReadingClipboard) {
-                  c.stopClipboardNarration();
-                } else {
-                  c.readClipboard();
-                }
-              },
-              icon: c.isReadingClipboard ? Icons.stop : Icons.content_paste,
-              label: c.isReadingClipboard
-                  ? 'Stop clipboard playback'
-                  : 'Read text from clipboard',
-            ),
           ],
-        ),
-      );
+
+          // Toggle text
+          OutlineButton(
+            onPressed: () => setState(() => _showingText = true),
+            icon: Icons.text_snippet_outlined,
+            label: 'Show $chunkTypeLabel text',
+          ),
+          const SizedBox(height: 12),
+
+          // Upload another
+          SecondaryButton(
+            onPressed: c.isDocumentLoading ? null : () => c.pickFile(),
+            icon: Icons.file_upload,
+            label: 'Select another file',
+          ),
+          const SizedBox(height: 12),
+
+          // Clipboard
+          SecondaryButton(
+            onPressed: () {
+              if (c.isReadingClipboard) {
+                c.stopClipboardNarration();
+              } else {
+                c.readClipboard();
+              }
+            },
+            icon: c.isReadingClipboard ? Icons.stop : Icons.content_paste,
+            label: c.isReadingClipboard
+                ? 'Stop clipboard playback'
+                : 'Read text from clipboard',
+          ),
+        ],
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -198,7 +195,9 @@ class _PlayerViewState extends State<PlayerView> {
             IconButton(
               icon: const Icon(Icons.chevron_left_rounded),
               tooltip: 'Prev',
-              onPressed: canGoPrev ? () => c.setChunk(c.currentChunk - 1) : null,
+              onPressed: canGoPrev
+                  ? () => c.setChunk(c.currentChunk - 1)
+                  : null,
               color: kAmber,
               disabledColor: Colors.white.withValues(alpha: 0.15),
             ),
@@ -255,7 +254,9 @@ class _PlayerViewState extends State<PlayerView> {
             IconButton(
               icon: const Icon(Icons.chevron_right_rounded),
               tooltip: 'Next',
-              onPressed: canGoNext ? () => c.setChunk(c.currentChunk + 1) : null,
+              onPressed: canGoNext
+                  ? () => c.setChunk(c.currentChunk + 1)
+                  : null,
               color: kAmber,
               disabledColor: Colors.white.withValues(alpha: 0.15),
             ),

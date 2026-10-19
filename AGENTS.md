@@ -107,3 +107,13 @@ flutter test --timeout 30s
 ### 5. Hot Reload & DTD
 - Antigravity IDE connects to running Flutter apps via the Dart Tooling Daemon (`dtd`).
 - If an app is running, hot reloads should be triggered after modifying `lib/` files. If no app is running, proceed normally.
+
+### 6. Resilient EPUB Parsing
+- Always use `EpubReader.openBook` rather than `readBook`. `readBook` eagerly decodes all files declared in `<manifest>`, throwing errors on missing or unbundled non-text files (such as reader-specific JavaScript `kobo.js`, fonts, or images).
+- Resolves internal relative paths (e.g. `../`) and case variances against the raw archive entries.
+- Falls back to reading `<spine>` linear reading order items if the navigation TOC (`toc.ncx` / `nav.xhtml`) is missing or empty.
+
+### 7. Linux TTS Platform Handling
+- `flutter_tts` does not have a native Linux desktop plugin implementation and will throw unhandled `MissingPluginException` errors if platform channels are invoked.
+- All direct calls to `_flutterTts` (such as `setSpeechRate`, `setLanguage`, `speak`, and `stop`) must be guarded with `if (kIsWeb || !Platform.isLinux)` or safe `.catchError()` handlers. On Linux desktop, speech is synthesized via native pipeline processes (`piper` / `aplay` / `spd-say`).
+

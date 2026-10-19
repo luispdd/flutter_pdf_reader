@@ -26,7 +26,7 @@ class DocumentReaderController extends ChangeNotifier {
   String? _documentFileName;
   bool _isPdf = false;
   bool _isEpub = false;
-  
+
   ReaderService? _activeReader;
   final ClipboardReaderService _clipboardReader = ClipboardReaderService();
 
@@ -57,7 +57,10 @@ class DocumentReaderController extends ChangeNotifier {
   String? get speechLanguage => _speechLanguage;
   bool get codeFiltering => _codeFiltering;
 
-  DocumentReaderController({SharedPreferences? prefs, bool autoRestore = true}) {
+  DocumentReaderController({
+    SharedPreferences? prefs,
+    bool autoRestore = true,
+  }) {
     _initTts();
     if (prefs != null) {
       _applySettingsFromPrefs(prefs);
@@ -69,8 +72,9 @@ class DocumentReaderController extends ChangeNotifier {
         final file = File(savedPath);
         if (file.existsSync()) {
           _documentPath = savedPath;
-          _documentFileName = savedFileName ?? savedPath.split(Platform.pathSeparator).last;
-          
+          _documentFileName =
+              savedFileName ?? savedPath.split(Platform.pathSeparator).last;
+
           final extension = _documentFileName!.split('.').last.toLowerCase();
           _isPdf = extension == 'pdf';
           _isEpub = extension == 'epub';
@@ -98,16 +102,20 @@ class DocumentReaderController extends ChangeNotifier {
     final savedRate = prefs.getDouble(_keySpeechRate);
     if (savedRate != null) {
       _speechRate = savedRate;
-      try {
-        _flutterTts.setSpeechRate(_speechRate);
-      } catch (_) {}
+      if (kIsWeb || !Platform.isLinux) {
+        try {
+          _flutterTts.setSpeechRate(_speechRate).catchError((_) => null);
+        } catch (_) {}
+      }
     }
     final savedLanguage = prefs.getString(_keySpeechLanguage);
     if (savedLanguage != null && savedLanguage.isNotEmpty) {
       _speechLanguage = savedLanguage;
-      try {
-        _flutterTts.setLanguage(_speechLanguage!);
-      } catch (_) {}
+      if (kIsWeb || !Platform.isLinux) {
+        try {
+          _flutterTts.setLanguage(_speechLanguage!).catchError((_) => null);
+        } catch (_) {}
+      }
     }
     final savedCodeFiltering = prefs.getBool(_keyCodeFiltering);
     if (savedCodeFiltering != null) {
@@ -121,17 +129,19 @@ class DocumentReaderController extends ChangeNotifier {
   }
 
   void _initTts() {
-    _flutterTts.setCompletionHandler(() {
-      if (_isPlaying) {
-        if (_isReadingClipboard) {
-          _isReadingClipboard = false;
-          _isPlaying = false;
-          notifyListeners();
-        } else {
-          _readNextChunk();
+    if (kIsWeb || !Platform.isLinux) {
+      _flutterTts.setCompletionHandler(() {
+        if (_isPlaying) {
+          if (_isReadingClipboard) {
+            _isReadingClipboard = false;
+            _isPlaying = false;
+            notifyListeners();
+          } else {
+            _readNextChunk();
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   Future<void> _restoreSettings() async {
@@ -145,6 +155,9 @@ class DocumentReaderController extends ChangeNotifier {
   }
 
   Future<List<String>> getAvailableLanguages() async {
+    if (!kIsWeb && Platform.isLinux) {
+      return [];
+    }
     try {
       final dynamic languages = await _flutterTts.getLanguages;
       if (languages is List) {
@@ -178,14 +191,16 @@ class DocumentReaderController extends ChangeNotifier {
         debugPrint("Error updating code filtering setting: $e");
       }
     }
-    try {
-      await _flutterTts.setSpeechRate(_speechRate);
-    } catch (_) {}
-    try {
-      if (_speechLanguage != null && _speechLanguage!.isNotEmpty) {
-        await _flutterTts.setLanguage(_speechLanguage!);
-      }
-    } catch (_) {}
+    if (kIsWeb || !Platform.isLinux) {
+      try {
+        await _flutterTts.setSpeechRate(_speechRate);
+      } catch (_) {}
+      try {
+        if (_speechLanguage != null && _speechLanguage!.isNotEmpty) {
+          await _flutterTts.setLanguage(_speechLanguage!);
+        }
+      } catch (_) {}
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(_keySpeechRate, _speechRate);
@@ -215,8 +230,9 @@ class DocumentReaderController extends ChangeNotifier {
         final file = File(savedPath);
         if (await file.exists()) {
           _documentPath = savedPath;
-          _documentFileName = savedFileName ?? savedPath.split(Platform.pathSeparator).last;
-          
+          _documentFileName =
+              savedFileName ?? savedPath.split(Platform.pathSeparator).last;
+
           final extension = _documentFileName!.split('.').last.toLowerCase();
           _isPdf = extension == 'pdf';
           _isEpub = extension == 'epub';
@@ -275,7 +291,8 @@ class DocumentReaderController extends ChangeNotifier {
       if (customPath != null) {
         _isDocumentLoading = true;
         _documentPath = customPath;
-        _documentFileName = customName ?? customPath.split(Platform.pathSeparator).last;
+        _documentFileName =
+            customName ?? customPath.split(Platform.pathSeparator).last;
         _isLoading = true;
         _totalChunks = 0;
         notifyListeners();
@@ -308,11 +325,11 @@ class DocumentReaderController extends ChangeNotifier {
         _isLoading = true;
         _totalChunks = 0;
         notifyListeners();
-        
+
         final extension = _documentFileName!.split('.').last.toLowerCase();
         _isPdf = extension == 'pdf';
         _isEpub = extension == 'epub';
-        
+
         await _loadDocument(initialChunk: 1);
       } else {
         _isDocumentLoading = false;
@@ -342,7 +359,7 @@ class DocumentReaderController extends ChangeNotifier {
     if (_loadGeneration != currentGen) return;
 
     _activeReader?.dispose();
-    
+
     if (_isPdf) {
       _activeReader = PdfReaderService();
     } else if (_isEpub) {
@@ -411,7 +428,7 @@ class DocumentReaderController extends ChangeNotifier {
   Future<void> setChunk(int chunkIndex) async {
     if (chunkIndex < 1 || chunkIndex > _totalChunks) return;
     _currentChunk = chunkIndex;
-    
+
     _isLoading = true;
     notifyListeners();
 
@@ -449,7 +466,10 @@ class DocumentReaderController extends ChangeNotifier {
   }
 
   Future<void> startNarration() async {
-    if ((_activeReader == null && !_isReadingClipboard) || _currentChunkText.isEmpty) return;
+    if ((_activeReader == null && !_isReadingClipboard) ||
+        _currentChunkText.isEmpty) {
+      return;
+    }
 
     if (_isPlaying) {
       await stopNarration();
@@ -498,9 +518,12 @@ class DocumentReaderController extends ChangeNotifier {
     } else {
       try {
         final home = Platform.environment['HOME'] ?? '';
-        final modelPath = '$home/.local/share/piper-voices/en_GB-cori-high.onnx';
-        final lengthScale = (_speechRate > 0 ? (1.0 / _speechRate) : 1.0).toStringAsFixed(2);
-        final command = '''
+        final modelPath =
+            '$home/.local/share/piper-voices/en_GB-cori-high.onnx';
+        final lengthScale = (_speechRate > 0 ? (1.0 / _speechRate) : 1.0)
+            .toStringAsFixed(2);
+        final command =
+            '''
 set -o pipefail
 export PATH="\$HOME/.local/bin:\$HOME/.local/share/piper:/usr/local/bin:/usr/bin:/bin:\$PATH"
 echo "\$_TEXT" | piper --model "$modelPath" --length-scale \$LENGTH_SCALE --output-raw | aplay -r 22050 -f S16_LE -t raw -
@@ -533,7 +556,9 @@ echo "\$_TEXT" | piper --model "$modelPath" --length-scale \$LENGTH_SCALE --outp
               _readNextChunk();
             }
           } else if (code != 0 && _isPlaying) {
-            debugPrint("TTS process exited with code $code. Stopping narration.");
+            debugPrint(
+              "TTS process exited with code $code. Stopping narration.",
+            );
             _isPlaying = false;
             _isReadingClipboard = false;
             ForegroundServiceManager.stopService();

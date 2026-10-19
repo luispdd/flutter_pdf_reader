@@ -31,10 +31,7 @@ class MyApp extends StatelessWidget {
     );
 
     if (controller != null) {
-      return ChangeNotifierProvider.value(
-        value: controller!,
-        child: app,
-      );
+      return ChangeNotifierProvider.value(value: controller!, child: app);
     }
 
     return ChangeNotifierProvider(

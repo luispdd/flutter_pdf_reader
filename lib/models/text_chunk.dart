@@ -3,9 +3,5 @@ class TextChunk {
   final String text;
   final String? label;
 
-  TextChunk({
-    required this.index,
-    required this.text,
-    this.label,
-  });
+  TextChunk({required this.index, required this.text, this.label});
 }

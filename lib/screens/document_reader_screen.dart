@@ -48,9 +48,7 @@ class DocumentReaderScreen extends StatelessWidget {
             tooltip: 'Configuration',
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ConfigurationScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const ConfigurationScreen()),
               );
             },
           ),
@@ -66,7 +64,8 @@ class DocumentReaderScreen extends StatelessWidget {
   }
 
   Widget _buildBody(DocumentReaderController controller) {
-    if (controller.isDocumentLoading || (controller.isLoading && controller.totalChunks == 0)) {
+    if (controller.isDocumentLoading ||
+        (controller.isLoading && controller.totalChunks == 0)) {
       return LoadingView(
         documentFileName: controller.documentFileName,
         onCancel: () => controller.cancelLoading(),
@@ -74,7 +73,9 @@ class DocumentReaderScreen extends StatelessWidget {
     }
     if (controller.totalChunks == 0) {
       return EmptyStateView(
-        onPickFile: controller.isDocumentLoading ? null : () => controller.pickFile(),
+        onPickFile: controller.isDocumentLoading
+            ? null
+            : () => controller.pickFile(),
         onReadClipboard: () => controller.readClipboard(),
       );
     }

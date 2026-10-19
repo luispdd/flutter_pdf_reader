@@ -7,7 +7,7 @@ class ClipboardReaderService implements ReaderService {
   Future<void> loadDocument(String path) async {
     // Not used for clipboard
   }
-  
+
   void loadText(String text) {
     _text = text;
   }

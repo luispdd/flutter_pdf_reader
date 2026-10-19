@@ -5,11 +5,7 @@ class LoadingView extends StatefulWidget {
   final String? documentFileName;
   final VoidCallback? onCancel;
 
-  const LoadingView({
-    super.key,
-    this.documentFileName,
-    this.onCancel,
-  });
+  const LoadingView({super.key, this.documentFileName, this.onCancel});
 
   @override
   State<LoadingView> createState() => _LoadingViewState();
@@ -36,8 +32,8 @@ class _LoadingViewState extends State<LoadingView>
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.documentFileName != null &&
-            widget.documentFileName!.isNotEmpty
+    final title =
+        widget.documentFileName != null && widget.documentFileName!.isNotEmpty
         ? 'Loading ${widget.documentFileName}...'
         : 'Loading document...';
 
@@ -123,7 +119,10 @@ class _LoadingViewState extends State<LoadingView>
                   width: 1,
                 ),
                 backgroundColor: Colors.white.withValues(alpha: 0.04),
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 12,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),

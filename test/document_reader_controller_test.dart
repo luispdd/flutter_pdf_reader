@@ -137,20 +137,23 @@ void main() {
     expect(prefs.getInt('last_chunk_index'), 3);
   });
 
-  test('Restores speech rate, language, and code filtering from SharedPreferences', () async {
-    SharedPreferences.setMockInitialValues({
-      'narration_speed': 1.5,
-      'narration_language': 'en-GB',
-      'code_filtering': true,
-    });
+  test(
+    'Restores speech rate, language, and code filtering from SharedPreferences',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'narration_speed': 1.5,
+        'narration_language': 'en-GB',
+        'code_filtering': true,
+      });
 
-    final controller = DocumentReaderController();
-    await Future.delayed(const Duration(milliseconds: 50));
+      final controller = DocumentReaderController();
+      await Future.delayed(const Duration(milliseconds: 50));
 
-    expect(controller.speechRate, 1.5);
-    expect(controller.speechLanguage, 'en-GB');
-    expect(controller.codeFiltering, isTrue);
-  });
+      expect(controller.speechRate, 1.5);
+      expect(controller.speechLanguage, 'en-GB');
+      expect(controller.codeFiltering, isTrue);
+    },
+  );
 
   test(
     'updateSpeechSettings updates state and persists to SharedPreferences',
@@ -249,55 +252,61 @@ void main() {
     expect(controller.totalChunks, 3);
   });
 
-  test('setChunk updates current chunk without activating isDocumentLoading', () async {
-    SharedPreferences.setMockInitialValues({
-      'last_document_path': samplePdfFile.path,
-      'last_document_name': 'test_sample.pdf',
-      'last_chunk_index': 1,
-    });
-    final prefs = await SharedPreferences.getInstance();
-    final controller = DocumentReaderController(prefs: prefs);
+  test(
+    'setChunk updates current chunk without activating isDocumentLoading',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'last_document_path': samplePdfFile.path,
+        'last_document_name': 'test_sample.pdf',
+        'last_chunk_index': 1,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final controller = DocumentReaderController(prefs: prefs);
 
-    await Future.delayed(const Duration(milliseconds: 200));
+      await Future.delayed(const Duration(milliseconds: 200));
 
-    expect(controller.currentChunk, 1);
-    expect(controller.isDocumentLoading, isFalse);
+      expect(controller.currentChunk, 1);
+      expect(controller.isDocumentLoading, isFalse);
 
-    await controller.setChunk(2);
-    expect(controller.currentChunk, 2);
-    expect(controller.isDocumentLoading, isFalse);
-    expect(controller.currentChunkText, contains('Page Two'));
-  });
+      await controller.setChunk(2);
+      expect(controller.currentChunk, 2);
+      expect(controller.isDocumentLoading, isFalse);
+      expect(controller.currentChunkText, contains('Page Two'));
+    },
+  );
 
-  test('cancelLoading resets loading state, document info, and clears session', () async {
-    SharedPreferences.setMockInitialValues({
-      'last_document_path': samplePdfFile.path,
-      'last_document_name': 'test_sample.pdf',
-      'last_chunk_index': 1,
-    });
-    final prefs = await SharedPreferences.getInstance();
-    final controller = DocumentReaderController(prefs: prefs);
+  test(
+    'cancelLoading resets loading state, document info, and clears session',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'last_document_path': samplePdfFile.path,
+        'last_document_name': 'test_sample.pdf',
+        'last_chunk_index': 1,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final controller = DocumentReaderController(prefs: prefs);
 
-    expect(controller.isLoading, isTrue);
-    expect(controller.isDocumentLoading, isTrue);
+      expect(controller.isLoading, isTrue);
+      expect(controller.isDocumentLoading, isTrue);
 
-    // Cancel loading immediately
-    await controller.cancelLoading();
+      // Cancel loading immediately
+      await controller.cancelLoading();
 
-    expect(controller.isLoading, isFalse);
-    expect(controller.isDocumentLoading, isFalse);
-    expect(controller.documentFileName, isNull);
-    expect(controller.totalChunks, 0);
-    expect(controller.currentChunkText, isEmpty);
+      expect(controller.isLoading, isFalse);
+      expect(controller.isDocumentLoading, isFalse);
+      expect(controller.documentFileName, isNull);
+      expect(controller.totalChunks, 0);
+      expect(controller.currentChunkText, isEmpty);
 
-    // Even after waiting, background loading should not overwrite cancelled state
-    await Future.delayed(const Duration(milliseconds: 200));
-    expect(controller.isLoading, isFalse);
-    expect(controller.isDocumentLoading, isFalse);
-    expect(controller.documentFileName, isNull);
-    expect(controller.totalChunks, 0);
+      // Even after waiting, background loading should not overwrite cancelled state
+      await Future.delayed(const Duration(milliseconds: 200));
+      expect(controller.isLoading, isFalse);
+      expect(controller.isDocumentLoading, isFalse);
+      expect(controller.documentFileName, isNull);
+      expect(controller.totalChunks, 0);
 
-    // Preferences should be cleared
-    expect(prefs.getString('last_document_path'), isNull);
-  });
+      // Preferences should be cleared
+      expect(prefs.getString('last_document_path'), isNull);
+    },
+  );
 }

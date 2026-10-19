@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
@@ -29,7 +30,8 @@ class ForegroundServiceManager {
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'narration_foreground_service',
         channelName: 'Document Narration Service',
-        channelDescription: 'Active narration playback keeps Dart runtime active',
+        channelDescription:
+            'Active narration playback keeps Dart runtime active',
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: false,

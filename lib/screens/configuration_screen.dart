@@ -402,16 +402,10 @@ class _ConfigurationScreenState extends State<ConfigurationScreen> {
                   ],
                 ),
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 12),
-                trailing,
-              ],
+              if (trailing != null) ...[const SizedBox(width: 12), trailing],
             ],
           ),
-          if (child != null) ...[
-            const SizedBox(height: 18),
-            child,
-          ],
+          if (child != null) ...[const SizedBox(height: 18), child],
         ],
       ),
     );

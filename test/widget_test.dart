@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -115,9 +116,7 @@ void main() {
       ChangeNotifierProvider.value(
         value: controller,
         child: MaterialApp(
-          home: Scaffold(
-            body: PlayerView(controller: controller),
-          ),
+          home: Scaffold(body: PlayerView(controller: controller)),
         ),
       ),
     );
@@ -127,159 +126,180 @@ void main() {
     expect(find.byType(PlayerView), findsOneWidget);
   });
 
-  testWidgets('App launches directly into EmptyStateView when no saved document exists', (
-    WidgetTester tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
+  testWidgets(
+    'App launches directly into EmptyStateView when no saved document exists',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
 
-    await tester.pumpWidget(MyApp(prefs: prefs));
+      await tester.pumpWidget(MyApp(prefs: prefs));
 
-    expect(find.byType(EmptyStateView), findsOneWidget);
-    expect(find.byType(LoadingView), findsNothing);
-  });
+      expect(find.byType(EmptyStateView), findsOneWidget);
+      expect(find.byType(LoadingView), findsNothing);
+    },
+  );
 
-  testWidgets('App launches directly into LoadingView when saved document exists on disk', (
-    WidgetTester tester,
-  ) async {
-    final tempDir = Directory.systemTemp.createTempSync('widget_launch_test_');
-    final sampleFile = File('${tempDir.path}/sample_launch.pdf');
-    final doc = PdfDocument();
-    doc.pages.add().graphics.drawString('Launch Doc', PdfStandardFont(PdfFontFamily.helvetica, 12));
-    final bytes = doc.saveSync();
-    doc.dispose();
-    sampleFile.writeAsBytesSync(bytes);
+  testWidgets(
+    'App launches directly into LoadingView when saved document exists on disk',
+    (WidgetTester tester) async {
+      final tempDir = Directory.systemTemp.createTempSync(
+        'widget_launch_test_',
+      );
+      final sampleFile = File('${tempDir.path}/sample_launch.pdf');
+      final doc = PdfDocument();
+      doc.pages.add().graphics.drawString(
+        'Launch Doc',
+        PdfStandardFont(PdfFontFamily.helvetica, 12),
+      );
+      final bytes = doc.saveSync();
+      doc.dispose();
+      sampleFile.writeAsBytesSync(bytes);
 
-    SharedPreferences.setMockInitialValues({
-      'last_document_path': sampleFile.path,
-      'last_document_name': 'sample_launch.pdf',
-      'last_chunk_index': 1,
-    });
-    final prefs = await SharedPreferences.getInstance();
+      SharedPreferences.setMockInitialValues({
+        'last_document_path': sampleFile.path,
+        'last_document_name': 'sample_launch.pdf',
+        'last_chunk_index': 1,
+      });
+      final prefs = await SharedPreferences.getInstance();
 
-    await tester.pumpWidget(MyApp(prefs: prefs));
+      await tester.pumpWidget(MyApp(prefs: prefs));
 
-    // Immediately on frame 1, LoadingView is rendered and EmptyStateView is not
-    expect(find.byType(LoadingView), findsOneWidget);
-    expect(find.text('Loading sample_launch.pdf...'), findsOneWidget);
-    expect(find.byType(EmptyStateView), findsNothing);
+      // Immediately on frame 1, LoadingView is rendered and EmptyStateView is not
+      expect(find.byType(LoadingView), findsOneWidget);
+      expect(find.text('Loading sample_launch.pdf...'), findsOneWidget);
+      expect(find.byType(EmptyStateView), findsNothing);
 
-    // Complete loading
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(find.byType(PlayerView), findsOneWidget);
-    expect(find.byType(LoadingView), findsNothing);
+      // Complete loading
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(PlayerView), findsOneWidget);
+      expect(find.byType(LoadingView), findsNothing);
 
-    if (tempDir.existsSync()) {
-      tempDir.deleteSync(recursive: true);
-    }
-  });
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
+      }
+    },
+  );
 
-  testWidgets('App launches directly into EmptyStateView when saved document does not exist on disk', (
-    WidgetTester tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({
-      'last_document_path': '/non/existent/path/missing_file.pdf',
-      'last_document_name': 'missing_file.pdf',
-      'last_chunk_index': 1,
-    });
-    final prefs = await SharedPreferences.getInstance();
+  testWidgets(
+    'App launches directly into EmptyStateView when saved document does not exist on disk',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues({
+        'last_document_path': '/non/existent/path/missing_file.pdf',
+        'last_document_name': 'missing_file.pdf',
+        'last_chunk_index': 1,
+      });
+      final prefs = await SharedPreferences.getInstance();
 
-    await tester.pumpWidget(MyApp(prefs: prefs));
+      await tester.pumpWidget(MyApp(prefs: prefs));
 
-    expect(find.byType(EmptyStateView), findsOneWidget);
-    expect(find.byType(LoadingView), findsNothing);
-  });
+      expect(find.byType(EmptyStateView), findsOneWidget);
+      expect(find.byType(LoadingView), findsNothing);
+    },
+  );
 
-  testWidgets('DocumentReaderScreen renders LoadingView during pickFile and transitions to PlayerView', (
-    WidgetTester tester,
-  ) async {
-    final tempDir = Directory.systemTemp.createTempSync('widget_pick_test_');
-    final sampleFile = File('${tempDir.path}/picked_sample.pdf');
-    final doc = PdfDocument();
-    doc.pages.add().graphics.drawString('Picked Doc', PdfStandardFont(PdfFontFamily.helvetica, 12));
-    final bytes = doc.saveSync();
-    doc.dispose();
-    sampleFile.writeAsBytesSync(bytes);
+  testWidgets(
+    'DocumentReaderScreen renders LoadingView during pickFile and transitions to PlayerView',
+    (WidgetTester tester) async {
+      final tempDir = Directory.systemTemp.createTempSync('widget_pick_test_');
+      final sampleFile = File('${tempDir.path}/picked_sample.pdf');
+      final doc = PdfDocument();
+      doc.pages.add().graphics.drawString(
+        'Picked Doc',
+        PdfStandardFont(PdfFontFamily.helvetica, 12),
+      );
+      final bytes = doc.saveSync();
+      doc.dispose();
+      sampleFile.writeAsBytesSync(bytes);
 
-    SharedPreferences.setMockInitialValues({});
-    final prefs = await SharedPreferences.getInstance();
-    final controller = DocumentReaderController(prefs: prefs);
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final controller = DocumentReaderController(prefs: prefs);
 
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: controller,
-        child: const MaterialApp(home: DocumentReaderScreen()),
-      ),
-    );
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: controller,
+          child: const MaterialApp(home: DocumentReaderScreen()),
+        ),
+      );
 
-    expect(find.byType(EmptyStateView), findsOneWidget);
-    expect(find.byType(LoadingView), findsNothing);
+      expect(find.byType(EmptyStateView), findsOneWidget);
+      expect(find.byType(LoadingView), findsNothing);
 
-    // Call pickFile with customPath
-    final pickFuture = controller.pickFile(
-      customPath: sampleFile.path,
-      customName: 'picked_sample.pdf',
-    );
+      // Call pickFile with customPath
+      final pickFuture = controller.pickFile(
+        customPath: sampleFile.path,
+        customName: 'picked_sample.pdf',
+      );
 
-    // Immediately shows LoadingView
-    await tester.pump();
-    expect(find.byType(LoadingView), findsOneWidget);
-    expect(find.text('Loading picked_sample.pdf...'), findsOneWidget);
-    expect(find.byType(EmptyStateView), findsNothing);
+      // Immediately shows LoadingView
+      await tester.pump();
+      expect(find.byType(LoadingView), findsOneWidget);
+      expect(find.text('Loading picked_sample.pdf...'), findsOneWidget);
+      expect(find.byType(EmptyStateView), findsNothing);
 
-    // Wait for document loading to complete
-    await tester.pump(const Duration(milliseconds: 50));
-    await pickFuture;
-    await tester.pump();
+      // Wait for document loading to complete
+      await tester.pump(const Duration(milliseconds: 50));
+      await pickFuture;
+      await tester.pump();
 
-    expect(find.byType(PlayerView), findsOneWidget);
-    expect(find.byType(LoadingView), findsNothing);
+      expect(find.byType(PlayerView), findsOneWidget);
+      expect(find.byType(LoadingView), findsNothing);
 
-    if (tempDir.existsSync()) {
-      tempDir.deleteSync(recursive: true);
-    }
-  });
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
+      }
+    },
+  );
 
-  testWidgets('Page navigation does not trigger LoadingView and keeps PlayerView mounted', (
-    WidgetTester tester,
-  ) async {
-    final tempDir = Directory.systemTemp.createTempSync('widget_page_turn_test_');
-    final sampleFile = File('${tempDir.path}/page_turn_sample.pdf');
-    final doc = PdfDocument();
-    doc.pages.add().graphics.drawString('Page One Content', PdfStandardFont(PdfFontFamily.helvetica, 12));
-    doc.pages.add().graphics.drawString('Page Two Content', PdfStandardFont(PdfFontFamily.helvetica, 12));
-    final bytes = doc.saveSync();
-    doc.dispose();
-    sampleFile.writeAsBytesSync(bytes);
+  testWidgets(
+    'Page navigation does not trigger LoadingView and keeps PlayerView mounted',
+    (WidgetTester tester) async {
+      final tempDir = Directory.systemTemp.createTempSync(
+        'widget_page_turn_test_',
+      );
+      final sampleFile = File('${tempDir.path}/page_turn_sample.pdf');
+      final doc = PdfDocument();
+      doc.pages.add().graphics.drawString(
+        'Page One Content',
+        PdfStandardFont(PdfFontFamily.helvetica, 12),
+      );
+      doc.pages.add().graphics.drawString(
+        'Page Two Content',
+        PdfStandardFont(PdfFontFamily.helvetica, 12),
+      );
+      final bytes = doc.saveSync();
+      doc.dispose();
+      sampleFile.writeAsBytesSync(bytes);
 
-    SharedPreferences.setMockInitialValues({
-      'last_document_path': sampleFile.path,
-      'last_document_name': 'page_turn_sample.pdf',
-      'last_chunk_index': 1,
-    });
-    final prefs = await SharedPreferences.getInstance();
+      SharedPreferences.setMockInitialValues({
+        'last_document_path': sampleFile.path,
+        'last_document_name': 'page_turn_sample.pdf',
+        'last_chunk_index': 1,
+      });
+      final prefs = await SharedPreferences.getInstance();
 
-    await tester.pumpWidget(MyApp(prefs: prefs));
-    await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpWidget(MyApp(prefs: prefs));
+      await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.byType(PlayerView), findsOneWidget);
-    expect(find.byType(LoadingView), findsNothing);
-    expect(find.text('Page '), findsOneWidget);
-    expect(find.text(' of 2'), findsOneWidget);
+      expect(find.byType(PlayerView), findsOneWidget);
+      expect(find.byType(LoadingView), findsNothing);
+      expect(find.text('Page '), findsOneWidget);
+      expect(find.text(' of 2'), findsOneWidget);
 
-    // Tap Next button to go to Page 2
-    final nextButton = find.byTooltip('Next');
-    expect(nextButton, findsOneWidget);
-    await tester.tap(nextButton);
-    await tester.pump();
+      // Tap Next button to go to Page 2
+      final nextButton = find.byTooltip('Next');
+      expect(nextButton, findsOneWidget);
+      await tester.tap(nextButton);
+      await tester.pump();
 
-    // PlayerView remains mounted, LoadingView is NOT rendered
-    expect(find.byType(PlayerView), findsOneWidget);
-    expect(find.byType(LoadingView), findsNothing);
-    expect(find.text('2'), findsWidgets);
+      // PlayerView remains mounted, LoadingView is NOT rendered
+      expect(find.byType(PlayerView), findsOneWidget);
+      expect(find.byType(LoadingView), findsNothing);
+      expect(find.text('2'), findsWidgets);
 
-    if (tempDir.existsSync()) {
-      tempDir.deleteSync(recursive: true);
-    }
-  });
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
+      }
+    },
+  );
 }

@@ -76,3 +76,19 @@ The system SHALL disable file selection actions while a document is actively bei
 - **WHEN** a document is in the process of loading or downloading from cloud storage
 - **THEN** file selection buttons SHALL be disabled to prevent starting concurrent file loading operations
 
+### Requirement: Resilient EPUB document parsing
+The system SHALL parse and extract text chunks from EPUB documents resiliently, ignoring missing or unresolvable auxiliary non-text assets (such as JavaScript files, fonts, or images) listed in the document manifest, and falling back gracefully when navigation structures are absent or malformed.
+
+#### Scenario: EPUB with missing or auxiliary manifest resources
+- **WHEN** an EPUB document contains manifest references to missing non-text files or reader-specific scripts (such as `kobo.js`)
+- **THEN** the system SHALL successfully parse the chapters and extract text chunks without aborting document loading
+
+#### Scenario: EPUB with relative or unnormalized internal paths
+- **WHEN** an EPUB document contains content file paths with relative segments (e.g. `../`) or case mismatches
+- **THEN** the system SHALL normalize the paths and resolve the content files from the archive
+
+#### Scenario: EPUB with missing or empty navigation TOC
+- **WHEN** an EPUB document lacks a Table of Contents (TOC) navigation map or navigation parsing fails
+- **THEN** the system SHALL fall back to extracting reading chunks sequentially from the document spine or archive contents
+
+
